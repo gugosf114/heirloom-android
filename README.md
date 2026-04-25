@@ -49,8 +49,16 @@ Detected via Play Store account country + device locale. AM = no paywall, ever.
 ```
 app/                    Android source (Kotlin + Compose)
 worker/                 Cloudflare Worker proxy
+cog-adaface/            Self-hosted AdaFace identity gate (Replicate Cog)
 gradle/                 Wrapper
 ```
+
+The AdaFace gate is self-hosted because no active dedicated face-embedding
+model exists on Replicate as of 2026-04-25 (`apna-mart/face-match` is
+offline; no `insightface`/`arcface` alternatives are alive). See
+[`cog-adaface/README.md`](./cog-adaface/README.md) for the model choice
+(IR-101 / WebFace4M from the AdaFace paper authors) and
+[`cog-adaface/deploy.md`](./cog-adaface/deploy.md) for build + push steps.
 
 ## Build
 
