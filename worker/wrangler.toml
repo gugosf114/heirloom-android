@@ -25,14 +25,32 @@ CODEFORMER_FIDELITY = "0.7"
 # and run DDColor; above it, we skip colorization.
 GRAYSCALE_THRESHOLD = "0.05"
 
-# Pinning Replicate model versions is important — model owners can push
-# breaking updates. These are placeholders; replace with real version SHAs
-# before flipping the production switch.
-BOPB_VERSION = "PLACEHOLDER_BOPB_VERSION_SHA"
-CODEFORMER_VERSION = "PLACEHOLDER_CODEFORMER_VERSION_SHA"
-ESRGAN_VERSION = "PLACEHOLDER_ESRGAN_VERSION_SHA"
+# Replicate model versions, pinned to specific SHAs.
+# Verified active (modelStatus: online) on 2026-04-25 against
+# https://replicate.com/{owner}/{name}.
+
+# Microsoft Research port. Last published 2022-09-28 — stable but stale,
+# no maintenance for 3+ years. Status: online. Risk to track: if Microsoft
+# pulls the model, fallback options are gfpgan or codeformer alone.
+BOPB_VERSION = "c75db81db6cbd809d93cc3b7e7a088a351a3349c9fa02b6d393e35e0d51ba799"
+
+# CodeFormer by sczhou. Last published 2025-01-20. 52M+ runs.
+CODEFORMER_VERSION = "cc4956dd26fa5a7185d5660cc9100fab1b8070a1d1654a8bb5eb6d443b020bb2"
+
+# Real-ESRGAN by nightmareai. latest_version pin (page widget shows an
+# older "displayed" version, but latest is the canonical pin).
+ESRGAN_VERSION = "b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5ea8"
+
+# DDColor by piddnad. Last published 2024-01-12.
+DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa695"
+
+# AdaFace: NO active dedicated face-embedding model exists on Replicate
+# as of 2026-04-25. apna-mart/face-match is offline. chenxwh/adaface 404.
+# No insightface, arcface, or facenet model is alive on the platform.
+# Pipeline gracefully skips the identity gate when this is left as the
+# placeholder string (cosine_similarity returns null, identity_warning
+# stays false). George decides the substitute or self-hosts a Cog.
 ADAFACE_VERSION = "PLACEHOLDER_ADAFACE_VERSION_SHA"
-DDCOLOR_VERSION = "PLACEHOLDER_DDCOLOR_VERSION_SHA"
 
 # Set REPLICATE_API_TOKEN via:
 #   npx wrangler secret put REPLICATE_API_TOKEN
