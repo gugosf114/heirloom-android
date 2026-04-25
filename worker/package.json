@@ -7,13 +7,16 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:dev": "wrangler deploy --name heirloom-worker-dev",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "smoke": "tsx test/smoke.ts",
+    "smoke:remote": "WORKER_URL=https://heirloom-worker.gugosf.workers.dev tsx test/smoke.ts"
   },
   "dependencies": {
     "jpeg-js": "^0.4.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241218.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "wrangler": "^3.95.0"
   }
