@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -471,7 +472,7 @@ private fun SecondaryButton(
         onClick = onClick,
         shape = RoundedCornerShape(2.dp),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink),
-        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(Ink)),
+        border = BorderStroke(1.dp, Ink),
         modifier = modifier.height(56.dp),
     ) {
         icon?.let {
