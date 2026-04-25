@@ -1,0 +1,35 @@
+# Cog config for the Heirloom AdaFace identity gate.
+#
+# Wraps minchul/cvlface_adaface_ir101_webface4m (AdaFace, IR-101 backbone,
+# WebFace4M training set — the strongest configuration from the AdaFace
+# paper, 1398 downloads on HF / community default).
+#
+# Build-time we snapshot-download the entire HF repo into /src/adaface_weights/
+# so the deployed image is fully self-contained — no runtime network egress
+# beyond the Replicate prediction request itself.
+build:
+  gpu: true
+  cuda: "11.8"
+  python_version: "3.10"
+  system_packages:
+    - "libgl1"
+    - "libglib2.0-0"
+  python_packages:
+    - "torch==2.0.1"
+    - "torchvision==0.15.2"
+    - "numpy==1.24.4"
+    - "pillow==10.2.0"
+    - "opencv-python==4.10.0.84"
+    - "facenet-pytorch==2.5.3"
+    - "transformers==4.46.3"
+    - "huggingface_hub==0.26.5"
+    - "safetensors==0.4.5"
+    - "omegaconf==2.3.0"
+    - "pyyaml==6.0.2"
+  run:
+    # Bake the AdaFace HF repo into the image. The wrapper.py uses relative
+    # paths (open('pretrained_model/model.yaml')), so predict.py chdir's into
+    # this directory at setup time.
+    - "python /src/download_weights.py"
+
+predict: "predict.py:Predictor"

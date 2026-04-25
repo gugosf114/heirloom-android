@@ -1,0 +1,21 @@
+# Cog build artifacts
+.cog/
+__pycache__/
+*.pyc
+
+# Weights (downloaded at build time, never committed)
+adaface_weights/
+*.safetensors
+*.ckpt
+*.pt
+
+# Test fixtures (real face photos pulled by download_fixtures.sh, gitignored
+# to keep the repo light)
+test/fixtures/*.jpg
+test/fixtures/*.jpeg
+test/fixtures/*.png
+!test/fixtures/.gitkeep
+!test/fixtures/README.md
+
+# Local cog state
+predict_*.json
