@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Heirloom</string>
+    <string name="tagline">For your family. Not your followers.</string>
+
+    <string name="pick_photo">Pick a photo</string>
+    <string name="take_photo">Take a photo</string>
+    <string name="restore">Restore</string>
+    <string name="save">Save</string>
+    <string name="share">Share</string>
+    <string name="start_over">Start over</string>
+
+    <string name="status_uploading">Uploading…</string>
+    <string name="status_repairing">Repairing scratches and tears…</string>
+    <string name="status_faces">Restoring faces…</string>
+    <string name="status_upscaling">Upscaling and denoising…</string>
+    <string name="status_checking">Checking identity…</string>
+    <string name="status_colorizing">Colorizing…</string>
+    <string name="status_finalizing">Finalizing…</string>
+
+    <string name="warning_identity_drift">This photo may be too damaged for faithful restoration. The face in the result is noticeably different from the original.</string>
+    <string name="error_generic">Something went wrong. Try again.</string>
+    <string name="error_network">No internet connection.</string>
+
+    <string name="paywall_title">Unlock Heirloom</string>
+    <string name="paywall_lifetime">Lifetime — $4.99</string>
+    <string name="paywall_yearly">Yearly — $9.99</string>
+    <string name="paywall_subtitle">No watermarks. No ads. No subscriptions tricks.</string>
+    <string name="free_tier_remaining">%1$d free restorations left</string>
+    <string name="armenia_free">Free in Armenia. Always.</string>
+</resources>

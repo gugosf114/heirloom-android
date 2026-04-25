@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Heirloom palette: aged-paper cream + ink + brass.
+         Built to feel like a leather-bound photo album, not a SaaS dashboard. -->
+    <color name="cream">#F4ECDD</color>
+    <color name="cream_deep">#E8DCC4</color>
+    <color name="ink">#1B1814</color>
+    <color name="ink_soft">#3A352D</color>
+    <color name="brass">#A6791D</color>
+    <color name="brass_deep">#7A5715</color>
+    <color name="oxblood">#6B2C2C</color>
+    <color name="ic_launcher_background">#1B1814</color>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="restored" path="restored/" />
+    <external-files-path name="external_restored" path="restored/" />
+</paths>

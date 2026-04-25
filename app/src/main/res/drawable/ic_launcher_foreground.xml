@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Heirloom mark: a serifed "H" sitting inside an inset square frame, brass on ink.
+     Sized for the standard 108dp adaptive-icon canvas with 18dp safe zone all around. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer frame -->
+    <path
+        android:pathData="M30,30 L78,30 L78,78 L30,78 Z M34,34 L34,74 L74,74 L74,34 Z"
+        android:fillColor="#A6791D" />
+
+    <!-- Serif H -->
+    <path
+        android:pathData="M44,42 L44,52 L64,52 L64,42 L68,42 L68,42 L72,42 L72,42 L72,66 L72,66 L68,66 L68,66 L64,66 L64,56 L44,56 L44,66 L40,66 L36,66 L36,42 L40,42 Z"
+        android:fillColor="#A6791D" />
+</vector>

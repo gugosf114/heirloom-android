@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/build
+.kotlin/
+
+# Worker
+worker/node_modules/
+worker/.dev.vars
+worker/.wrangler/
+worker/dist/
+
+# Secrets
+*.keystore
+keystore.properties
+google-services.json
+
+# Claude Code worktrees
+.claude/worktrees/

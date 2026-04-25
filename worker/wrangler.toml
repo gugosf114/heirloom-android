@@ -1,0 +1,38 @@
+name = "heirloom-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Restoration runs are long (60-120s on cold starts). Workers' default
+# 30s CPU limit is fine because we're mostly waiting on Replicate, but the
+# wallclock budget needs the unbound subrequest behavior.
+[limits]
+cpu_ms = 30000
+
+[vars]
+# Threshold below which we surface an identity-drift warning to the user.
+# AdaFace cosine similarity ranges roughly 0.0 (different person) to 1.0
+# (same person, same photo). 0.6 is the documented "same identity" floor
+# for AdaFace IR-101 trained on WebFace4M. Tune via wrangler secret put.
+IDENTITY_THRESHOLD = "0.6"
+
+# CodeFormer fidelity. 0 = max enhancement (might smooth features off),
+# 1 = max identity preservation. 0.7 is our deliberate "honest" default.
+CODEFORMER_FIDELITY = "0.7"
+
+# Saturation threshold for B&W detection. Mean color spread across sampled
+# pixels, normalized to [0,1]. Below this, we treat the input as monochrome
+# and run DDColor; above it, we skip colorization.
+GRAYSCALE_THRESHOLD = "0.05"
+
+# Pinning Replicate model versions is important — model owners can push
+# breaking updates. These are placeholders; replace with real version SHAs
+# before flipping the production switch.
+BOPB_VERSION = "PLACEHOLDER_BOPB_VERSION_SHA"
+CODEFORMER_VERSION = "PLACEHOLDER_CODEFORMER_VERSION_SHA"
+ESRGAN_VERSION = "PLACEHOLDER_ESRGAN_VERSION_SHA"
+ADAFACE_VERSION = "PLACEHOLDER_ADAFACE_VERSION_SHA"
+DDCOLOR_VERSION = "PLACEHOLDER_DDCOLOR_VERSION_SHA"
+
+# Set REPLICATE_API_TOKEN via:
+#   npx wrangler secret put REPLICATE_API_TOKEN

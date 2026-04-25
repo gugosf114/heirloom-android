@@ -1,0 +1,20 @@
+{
+  "name": "heirloom-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker proxy that orchestrates the Heirloom restoration pipeline on Replicate.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dev": "wrangler deploy --name heirloom-worker-dev",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.95.0"
+  }
+}
