@@ -80,3 +80,42 @@ Set the Replicate token as a secret:
 ```
 npx wrangler secret put REPLICATE_API_TOKEN
 ```
+
+## Session log
+
+### 2026-04-30 — first end-to-end cog build + Replicate push
+
+**What shipped this session:**
+
+- Docker Desktop installed on Windows (WSL2 backend, Linux containers).
+- Cog inside WSL Ubuntu (`/usr/local/bin/cog` 0.18.0, `~/.local/bin/cog` 0.19.0 — either works).
+- First successful `cog build` for `cog-adaface`. Three deploy-time fixes were only discovered by actually running the build end-to-end (committed in `df34472`):
+    - `cog.yaml` — added `fvcore==0.1.5.post20221221` (the bundled HF iresnet model code imports `fvcore.nn.flop_count`; `AutoModel.from_pretrained` fails without it).
+    - `cog.yaml` — replaced multi-line `run:` with a single inline Python command. Cog rejects multi-line `run:` blocks at Dockerfile-generation time.
+    - `cog.yaml` — pre-cache MTCNN PNet/RNet/ONet weights at build time. `facenet-pytorch` lazy-fetches them from GitHub on first MTCNN init; with Replicate's egress constrained, that hangs `setup()` past the 600s ceiling.
+    - `predict.py` — moved `WEIGHTS_DIR` from `/src/adaface_weights` to `/opt/adaface_weights`. Cog's predict runtime bind-mounts the host source over `/src` for live-iteration, masking anything baked into `/src` at build time.
+- First build wallclock: ~13 minutes on this connection (CUDA 11.8 + torch base = ~7–8 GB pull). Subsequent builds will hit cache.
+- Image size: 26.2 GB on disk, 9.01 GB content.
+- Tier 2 verification on CPU (no NVIDIA GPU on this machine; cog auto-fell-back to CPU when `--gpus` failed):
+    - `cos(Einstein x2)    = 0.590` (>0.5, passes)
+    - `cos(Einstein, Bohr) = 0.014` (<0.3, passes)
+    - 0.590 sits at the edge of the configured 0.6 threshold. Worth re-tuning once real before/after restoration pairs are available.
+- Pushed to Replicate as `gugosf114/heirloom-adaface` (private, GPU L40S).
+- Pinned the version SHA in `worker/wrangler.toml`:
+  `ab9c60a63457c7d15b6bc047afff20983247d6ef331db8cdb3b9d116ea39e07c`
+- Worker `npm install` ran cleanly (66 packages).
+- Worker `wrangler deploy` did **not** ship — Cloudflare OAuth login timed out, fell back to API-token route. Token issuance pending at session end.
+
+**Environment notes for future sessions:**
+
+- Docker Desktop is now installed and configured. WSL2 Ubuntu picks up the Docker engine cleanly.
+- No NVIDIA GPU on this machine. All local `cog predict` runs go to CPU (~30s per prediction instead of ~3s on GPU). Cog handles the fallback automatically.
+- Test fixtures already exist at `cog-adaface/test/fixtures/` (gitignored): `same_a.jpg`, `same_b.jpg`, `diff_a.jpg`. No need to re-run `download_fixtures.sh`.
+
+## To do next session
+
+1. **Finish the worker deploy.** Get a Cloudflare API token from `https://dash.cloudflare.com/profile/api-tokens` (template: "Edit Cloudflare Workers"). Either set `CLOUDFLARE_API_TOKEN` in the env before running `npx wrangler deploy`, or use `wrangler login` again with the OAuth flow if the token route is undesired.
+2. **Set the Replicate secret on the deployed worker.** From `worker/`, run `npx wrangler secret put REPLICATE_API_TOKEN`. The secret is pulled from `https://replicate.com/account/api-tokens`. Without it, the deployed worker has no way to call Replicate.
+3. **Smoke test end-to-end.** From `worker/`, run `npm run smoke:remote`. The expected last stage event reports a real cosine number (not null) and `identity_warning: false` (since the smoke fixture is identity-preserving). If cosine is null or the AdaFace stage is skipped, the SHA pin or secret is wrong.
+4. **Calibrate the 0.6 threshold against real data.** Generate (or wait for) actual before/after restoration pairs from the Heirloom pipeline. Compare cosines. If real pairs cluster at 0.5–0.6, drop the threshold to 0.5; if well above 0.7, keep 0.6 or tighten. The current 0.6 was set against AdaFace's documented "same identity" floor, not against Heirloom-specific drift.
+5. **Android side.** Re-run the Android build against the now-live pipeline and confirm the Compose UI handles `identity_warning: true` visibly (warn the user; do not auto-display the result without acknowledgment). The failure-honesty contract from `cog-adaface/README.md` only matters end-to-end if the UI surfaces it.
