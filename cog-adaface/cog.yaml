@@ -26,10 +26,26 @@ build:
     - "safetensors==0.4.5"
     - "omegaconf==2.3.0"
     - "pyyaml==6.0.2"
+    # fvcore is imported by the bundled HF model code (models/iresnet/model.py
+    # uses fvcore.nn.flop_count). Not in our predict.py path but required for
+    # the AutoModel import to succeed.
+    - "fvcore==0.1.5.post20221221"
   run:
-    # Bake the AdaFace HF repo into the image. The wrapper.py uses relative
-    # paths (open('pretrained_model/model.yaml')), so predict.py chdir's into
-    # this directory at setup time.
-    - "python /src/download_weights.py"
+    # Bake the AdaFace HF repo into the image. wrapper.py uses relative
+    # paths (open('pretrained_model/model.yaml')), so predict.py chdir's
+    # into this directory at setup time.
+    #
+    # Single-line because cog rejects multi-line `run:` commands at
+    # Dockerfile-generation time. The script reads files.txt from the
+    # HF repo (the author's own manifest), unions in the must-haves
+    # (config.json, wrapper.py, model.safetensors), and downloads each.
+    # The standalone download_weights.py is preserved for local-dev use.
+    - "python -c \"import os; from huggingface_hub import hf_hub_download as h; D='/opt/adaface_weights'; R='minchul/cvlface_adaface_ir101_webface4m'; os.makedirs(D, exist_ok=True); h(R, 'files.txt', local_dir=D, local_dir_use_symlinks=False); F=sorted(set(open(D+'/files.txt').read().split()) | {'config.json', 'wrapper.py', 'model.safetensors'}); print('AdaFace: pulling', len(F), 'files'); [h(R, x, local_dir=D, local_dir_use_symlinks=False) for x in F]; print('AdaFace: download complete')\""
+    # Pre-cache MTCNN weights (PNet/RNet/ONet). facenet-pytorch downloads
+    # these from GitHub on first MTCNN() init at runtime — if Replicate's
+    # worker egress is constrained, that hangs setup() past the 600s
+    # boundary. Instantiating MTCNN at build time bakes the weights into
+    # ~/.cache/torch/checkpoints/ inside the image.
+    - "python -c \"from facenet_pytorch import MTCNN; MTCNN(image_size=112, margin=0, post_process=False, select_largest=True, keep_all=False); print('MTCNN cached')\""
 
 predict: "predict.py:Predictor"

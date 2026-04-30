@@ -31,7 +31,10 @@ from facenet_pytorch import MTCNN
 
 from face_align import align_face_5pt
 
-WEIGHTS_DIR = "/src/adaface_weights"
+# Weights live outside /src because cog's predict runtime bind-mounts the
+# host source directory over /src for live-iteration. Anything baked into
+# /src at build time is masked at predict time. /opt/ is outside the mount.
+WEIGHTS_DIR = "/opt/adaface_weights"
 ADAFACE_INPUT_SIZE = 112
 
 

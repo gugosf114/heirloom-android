@@ -50,7 +50,7 @@ DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa
 # Pipeline gracefully skips the identity gate when this is left as the
 # placeholder string (cosine_similarity returns null, identity_warning
 # stays false). George decides the substitute or self-hosts a Cog.
-ADAFACE_VERSION = "PLACEHOLDER_ADAFACE_VERSION_SHA"
+ADAFACE_VERSION = "ab9c60a63457c7d15b6bc047afff20983247d6ef331db8cdb3b9d116ea39e07c"
 
 # Set REPLICATE_API_TOKEN via:
 #   npx wrangler secret put REPLICATE_API_TOKEN
