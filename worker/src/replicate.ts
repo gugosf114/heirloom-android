@@ -19,7 +19,12 @@ interface PredictionResponse {
 }
 
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
-const POLL_INTERVAL_MS = 1500;
+// Poll every 5s, not 1.5s. Each poll is a Cloudflare subrequest, and Workers
+// Free is capped at 50 subrequests per request. AdaFace cold starts can take
+// 90s — at 1.5s polling that alone burns 42 subrequests and starves the
+// last stage. 5s gives us ~18 polls for a 90s wait, leaving room for all
+// five stages plus retry-on-429 attempts.
+const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 180_000;
 
 /**
@@ -31,24 +36,7 @@ export async function runReplicate(
   version: string,
   input: Record<string, unknown>,
 ): Promise<unknown> {
-  const create = await fetch(`${REPLICATE_BASE}/predictions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Token ${config.token}`,
-      'Content-Type': 'application/json',
-      // 30s synchronous wait — most Replicate models finish inside this window
-      // on warm boots. Cold starts fall back to the polling loop below.
-      Prefer: 'wait=30',
-    },
-    body: JSON.stringify({ version, input }),
-  });
-
-  if (!create.ok) {
-    const body = await create.text();
-    throw new Error(`Replicate create failed (${create.status}): ${body}`);
-  }
-
-  let prediction: PredictionResponse = await create.json();
+  let prediction = await createWithRateLimitRetry(config, version, input);
   const startedAt = Date.now();
 
   while (prediction.status !== 'succeeded' && prediction.status !== 'failed' && prediction.status !== 'canceled') {
@@ -69,6 +57,56 @@ export async function runReplicate(
     throw new Error(`Replicate ${prediction.status}: ${prediction.error ?? 'unknown'}`);
   }
   return prediction.output;
+}
+
+/**
+ * Create a prediction, honoring Replicate's 429 retry_after on rate-limit
+ * pushback. New Replicate accounts (< $5 lifetime spend) get a burst-of-1
+ * rate limit; any production worker also wants this for transient bursts.
+ */
+async function createWithRateLimitRetry(
+  config: ReplicateConfig,
+  version: string,
+  input: Record<string, unknown>,
+): Promise<PredictionResponse> {
+  const MAX_RETRIES = 5;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const resp = await fetch(`${REPLICATE_BASE}/predictions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${config.token}`,
+        'Content-Type': 'application/json',
+        // 30s synchronous wait — most Replicate models finish inside this window
+        // on warm boots. Cold starts fall back to the polling loop below.
+        Prefer: 'wait=30',
+      },
+      body: JSON.stringify({ version, input }),
+    });
+
+    if (resp.ok) return resp.json();
+
+    const body = await resp.text();
+    if (resp.status !== 429 || attempt === MAX_RETRIES) {
+      throw new Error(`Replicate create failed (${resp.status}): ${body}`);
+    }
+
+    let waitSec = 10;
+    const header = resp.headers.get('retry-after');
+    if (header) {
+      const n = parseInt(header, 10);
+      if (!Number.isNaN(n)) waitSec = n;
+    } else {
+      try {
+        const parsed = JSON.parse(body) as { retry_after?: number };
+        if (typeof parsed.retry_after === 'number') waitSec = parsed.retry_after;
+      } catch {
+        // fall through to default 10s
+      }
+    }
+    // 1s buffer so we don't land exactly on the reset boundary.
+    await sleep((waitSec + 1) * 1000);
+  }
+  throw new Error('Replicate create: exhausted retry budget');
 }
 
 function sleep(ms: number): Promise<void> {

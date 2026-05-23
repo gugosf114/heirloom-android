@@ -4,10 +4,9 @@ compatibility_date = "2024-12-15"
 compatibility_flags = ["nodejs_compat"]
 
 # Restoration runs are long (60-120s on cold starts). Workers' default
-# 30s CPU limit is fine because we're mostly waiting on Replicate, but the
-# wallclock budget needs the unbound subrequest behavior.
-[limits]
-cpu_ms = 30000
+# CPU limit is fine because we're mostly waiting on Replicate; subrequest
+# wait time doesn't count against CPU. The [limits] block is a paid-plan
+# feature; we run on free until traffic justifies the upgrade.
 
 [vars]
 # Threshold below which we surface an identity-drift warning to the user.
