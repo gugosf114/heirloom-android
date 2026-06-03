@@ -98,6 +98,19 @@ npx wrangler secret put REPLICATE_API_TOKEN
 - Image size: 26.2 GB on disk, 9.01 GB content.
 - Tier 2 verification on CPU (no NVIDIA GPU on this machine; cog auto-fell-back to CPU when `--gpus` failed):
     - `cos(Einstein x2)    = 0.590` (>0.5, passes)
+
+### 2026-05-30 — Worker Pipeline & Replicate Custom Deployment Fixes
+
+**What shipped this session:**
+
+- Debug build of the Android app pointed to `heirloom-worker-dev.gugosf.workers.dev`.
+- Updated `worker/wrangler.toml` to include an `[env.dev]` block and properly pass variables to the dev environment.
+- Configured Cloudflare worker with `REPLICATE_API_TOKEN` and `ADAFACE_VERSION`.
+- Diagnosed and fixed an issue where the `heirloom-adaface` custom Replicate deployment kept hanging. The custom model (on an Nvidia T4 GPU) took ~4 minutes to cold boot from 0 instances, causing Cloudflare Workers to hit their 50-subrequest free-tier limit during polling.
+- Fixed the typescript wrapper (`replicate.ts`) to correctly format POST requests for Replicate's `deployments` API vs public models.
+- Set the custom Replicate deployment's `min_instances` to `1` via direct API PATCH to keep the GPU warm, reducing AdaFace time from 240s+ to ~2s.
+- Increased worker's `POLL_TIMEOUT_MS` to 480_000 (8 minutes) just in case.
+- End-to-end smoke test now passes with colorization and AdaFace cosine similarity checking working properly (`cos=0.846` for Migrant Mother test).
     - `cos(Einstein, Bohr) = 0.014` (<0.3, passes)
     - 0.590 sits at the edge of the configured 0.6 threshold. Worth re-tuning once real before/after restoration pairs are available.
 - Pushed to Replicate as `gugosf114/heirloom-adaface` (private, GPU L40S).

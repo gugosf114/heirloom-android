@@ -1,8 +1,11 @@
 package com.heirloom.app.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,7 +14,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Image
@@ -19,13 +21,14 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -39,23 +42,39 @@ import com.heirloom.app.R
 import com.heirloom.app.data.RestoreState
 import com.heirloom.app.data.RestoreViewModel
 import com.heirloom.app.data.Stage
-import com.heirloom.app.ui.theme.Brass
-import com.heirloom.app.ui.theme.CreamDeep
-import com.heirloom.app.ui.theme.Ink
-import com.heirloom.app.ui.theme.InkSoft
-import com.heirloom.app.ui.theme.Oxblood
 import kotlinx.coroutines.launch
+import android.app.Activity
+import android.content.Intent
 
 @Composable
 fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val pickPhotoLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri -> uri?.let { viewModel.pickPhoto(it) } }
+    // 1. Configure the ML Kit Document Scanner
+    val scannerOptions = GmsDocumentScannerOptions.Builder()
+        .setGalleryImportAllowed(true)
+        .setPageLimit(1)
+        .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+        .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_BASE)
+        .build()
+        
+    val scanner = GmsDocumentScanning.getClient(scannerOptions)
+
+    // 2. Register the launcher to handle the scanner result
+    val scannerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+            scanResult?.pages?.firstOrNull()?.imageUri?.let { uri ->
+                viewModel.photoCropped(uri)
+            }
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -82,9 +101,15 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                 when (current) {
                     is RestoreState.Idle -> IdleBody(
                         onPick = {
-                            pickPhotoLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
+                            activity?.let {
+                                scanner.getStartScanIntent(it)
+                                    .addOnSuccessListener { intentSender ->
+                                        scannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                                    }
+                                    .addOnFailureListener { e ->
+                                        scope.launch { snackbarHostState.showSnackbar("Scanner failed: ${e.message}") }
+                                    }
+                            }
                         }
                     )
                     is RestoreState.Picked -> PickedBody(
@@ -136,15 +161,15 @@ private fun HeirloomHeader() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.app_name),
+            text = stringResource(R.string.app_name).uppercase(),
             style = MaterialTheme.typography.displayLarge,
-            color = Ink,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = stringResource(R.string.tagline),
-            style = MaterialTheme.typography.bodyMedium,
-            color = InkSoft,
+            text = stringResource(R.string.tagline).uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
     }
@@ -167,15 +192,15 @@ private fun IdleBody(onPick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             PrimaryButton(
-                label = stringResource(R.string.pick_photo),
+                label = stringResource(R.string.pick_photo).uppercase(),
                 onClick = onPick,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Old. Damaged. Faded. Bring it back.",
+                text = "SYSTEM STANDBY.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = InkSoft,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -185,23 +210,22 @@ private fun IdleBody(onPick: () -> Unit) {
 private fun EmptyCanvas(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(2.dp))
-            .background(CreamDeep)
-            .border(1.dp, InkSoft.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RectangleShape),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = Icons.Outlined.Image,
                 contentDescription = null,
-                tint = InkSoft.copy(alpha = 0.5f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(64.dp),
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "No photo yet",
+                text = "NO INPUT DATA",
                 style = MaterialTheme.typography.bodyMedium,
-                color = InkSoft.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -222,21 +246,20 @@ private fun PickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> 
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .border(1.dp, InkSoft.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+                .border(1.dp, MaterialTheme.colorScheme.outline, RectangleShape),
         )
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             PrimaryButton(
-                label = stringResource(R.string.restore),
+                label = stringResource(R.string.restore).uppercase(),
                 onClick = onRestore,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onReset) {
-                Text(stringResource(R.string.start_over), color = InkSoft)
+            TextButton(onClick = onReset, shape = RectangleShape) {
+                Text(stringResource(R.string.start_over).uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -254,23 +277,22 @@ private fun ProcessingBody(sourceUri: String, stage: Stage) {
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 8.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color.Black.copy(alpha = 0.85f)),
+                .padding(vertical = 8.dp),
         )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f))
+                .border(1.dp, MaterialTheme.colorScheme.outline)
                 .padding(24.dp),
         ) {
-            CircularProgressIndicator(color = Brass, strokeWidth = 3.dp)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
             Spacer(Modifier.height(20.dp))
             Text(
-                text = stageLabel(stage),
+                text = stageLabel(stage).uppercase(),
                 style = MaterialTheme.typography.titleLarge,
-                color = Color(0xFFF4ECDD),
+                color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
         }
@@ -312,12 +334,12 @@ private fun DoneBody(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             BeforeAfterTile(
-                label = "Before",
+                label = "INPUT",
                 image = sourceUri,
                 modifier = Modifier.weight(1f),
             )
             BeforeAfterTile(
-                label = if (wasColorized) "Restored · Colorized" else "Restored",
+                label = if (wasColorized) "OUTPUT (+COLOR)" else "OUTPUT",
                 image = restoredUrl,
                 modifier = Modifier.weight(1f),
                 accent = true,
@@ -331,23 +353,23 @@ private fun DoneBody(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             PrimaryButton(
-                label = stringResource(R.string.save),
+                label = stringResource(R.string.save).uppercase(),
                 onClick = onSave,
                 icon = Icons.Outlined.Save,
                 modifier = Modifier.weight(1f),
             )
             SecondaryButton(
-                label = stringResource(R.string.share),
+                label = stringResource(R.string.share).uppercase(),
                 onClick = onShare,
                 icon = Icons.Outlined.Share,
                 modifier = Modifier.weight(1f),
             )
         }
         Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onReset) {
-            Icon(Icons.Outlined.Refresh, contentDescription = null, tint = InkSoft)
+        TextButton(onClick = onReset, shape = RectangleShape) {
+            Icon(Icons.Outlined.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.start_over), color = InkSoft)
+            Text(stringResource(R.string.start_over).uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -363,7 +385,7 @@ private fun BeforeAfterTile(
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (accent) Brass else InkSoft,
+            color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 4.dp),
         )
         AsyncImage(
@@ -373,11 +395,10 @@ private fun BeforeAfterTile(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(2.dp))
                 .border(
-                    width = if (accent) 2.dp else 1.dp,
-                    color = if (accent) Brass else InkSoft.copy(alpha = 0.25f),
-                    shape = RoundedCornerShape(2.dp),
+                    width = 1.dp,
+                    color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    shape = RectangleShape,
                 ),
         )
     }
@@ -388,22 +409,21 @@ private fun IdentityWarningBanner() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(2.dp))
-            .background(Oxblood.copy(alpha = 0.12f))
-            .border(1.dp, Oxblood, RoundedCornerShape(2.dp))
+            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+            .border(1.dp, MaterialTheme.colorScheme.error, RectangleShape)
             .padding(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Icon(
             imageVector = Icons.Outlined.WarningAmber,
             contentDescription = null,
-            tint = Oxblood,
+            tint = MaterialTheme.colorScheme.error,
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.warning_identity_drift),
+            text = "[WARN] IDENTITY DRIFT DETECTED.",
             style = MaterialTheme.typography.bodyMedium,
-            color = Oxblood,
+            color = MaterialTheme.colorScheme.error,
         )
     }
 }
@@ -418,21 +438,21 @@ private fun FailedBody(message: String, onRetry: () -> Unit, onReset: () -> Unit
         Icon(
             imageVector = Icons.Outlined.WarningAmber,
             contentDescription = null,
-            tint = Oxblood,
+            tint = MaterialTheme.colorScheme.error,
             modifier = Modifier.size(48.dp),
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = message,
+            text = "ERR: $message",
             style = MaterialTheme.typography.bodyLarge,
-            color = Ink,
+            color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(24.dp))
-        PrimaryButton(label = "Try again", onClick = onRetry, modifier = Modifier.fillMaxWidth())
+        PrimaryButton(label = "RETRY", onClick = onRetry, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onReset) {
-            Text(stringResource(R.string.start_over), color = InkSoft)
+        TextButton(onClick = onReset, shape = RectangleShape) {
+            Text(stringResource(R.string.start_over).uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -446,8 +466,12 @@ private fun PrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(2.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Color(0xFFF4ECDD)),
+        shape = RectangleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), 
+            contentColor = MaterialTheme.colorScheme.primary
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
         modifier = modifier.height(56.dp),
     ) {
         icon?.let {
@@ -457,7 +481,7 @@ private fun PrimaryButton(
             Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
             Spacer(Modifier.width(8.dp))
         }
-        Text(label, fontWeight = FontWeight.SemiBold)
+        Text(label, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -470,9 +494,9 @@ private fun SecondaryButton(
 ) {
     OutlinedButton(
         onClick = onClick,
-        shape = RoundedCornerShape(2.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink),
-        border = BorderStroke(1.dp, Ink),
+        shape = RectangleShape,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onBackground),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = modifier.height(56.dp),
     ) {
         icon?.let {

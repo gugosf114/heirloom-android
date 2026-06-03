@@ -80,15 +80,9 @@ dependencies {
     // JSON
     implementation("org.json:json:20240303")
 
-    // Firebase Auth + Google Sign-In (for free-tier usage tracking)
-    // Activated once google-services.json is dropped in app/
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
-    implementation("androidx.credentials:credentials:1.3.0")
-    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
-    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
-
     // Google Play Billing
     implementation("com.android.billingclient:billing-ktx:7.1.1")
+
+    // ML Kit Document Scanner (For perspective cropping physical photos)
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
 }

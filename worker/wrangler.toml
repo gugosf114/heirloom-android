@@ -49,7 +49,21 @@ DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa
 # Pipeline gracefully skips the identity gate when this is left as the
 # placeholder string (cosine_similarity returns null, identity_warning
 # stays false). George decides the substitute or self-hosts a Cog.
-ADAFACE_VERSION = "ab9c60a63457c7d15b6bc047afff20983247d6ef331db8cdb3b9d116ea39e07c"
+ADAFACE_VERSION = "gugosf114/heirloom-adaface"
 
 # Set REPLICATE_API_TOKEN via:
 #   npx wrangler secret put REPLICATE_API_TOKEN
+
+[env.dev]
+name = "heirloom-worker-dev"
+
+[env.dev.vars]
+IDENTITY_THRESHOLD = "0.6"
+CODEFORMER_FIDELITY = "0.7"
+GRAYSCALE_THRESHOLD = "0.05"
+BOPB_VERSION = "c75db81db6cbd809d93cc3b7e7a088a351a3349c9fa02b6d393e35e0d51ba799"
+CODEFORMER_VERSION = "cc4956dd26fa5a7185d5660cc9100fab1b8070a1d1654a8bb5eb6d443b020bb2"
+ESRGAN_VERSION = "b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5ea8"
+DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa695"
+ADAFACE_VERSION = "gugosf114/heirloom-adaface"
+

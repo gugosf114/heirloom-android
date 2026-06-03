@@ -1,36 +1,36 @@
 package com.heirloom.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
-private val HeirloomColorScheme = lightColorScheme(
-    primary = Brass,
-    onPrimary = Cream,
-    primaryContainer = BrassDeep,
-    onPrimaryContainer = Cream,
+private val HeirloomColorScheme = darkColorScheme(
+    primary = LavAmberText,
+    onPrimary = LavBackground,
+    primaryContainer = LavPanelSurface,
+    onPrimaryContainer = LavAmberText,
 
-    secondary = Oxblood,
-    onSecondary = Cream,
+    secondary = LavCrimsonRed,
+    onSecondary = LavBackground,
 
-    background = Cream,
-    onBackground = Ink,
-    surface = Cream,
-    onSurface = Ink,
-    surfaceVariant = CreamDeep,
-    onSurfaceVariant = InkSoft,
+    background = LavBackground,
+    onBackground = LavAmberText,
+    surface = LavPanelSurface,
+    onSurface = LavAmberText,
+    surfaceVariant = LavPanelSurface,
+    onSurfaceVariant = LavMutedText,
 
-    error = Oxblood,
-    onError = Cream,
+    error = LavCrimsonRed,
+    onError = LavBackground,
 
-    outline = InkSoft,
+    outline = LavBorder,
 )
 
 @Composable
 fun HeirloomTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = HeirloomColorScheme,
-        typography = HeirloomTypography,
+        typography = LavTypography,
         content = content,
     )
 }

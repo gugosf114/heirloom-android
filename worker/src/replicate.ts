@@ -25,7 +25,7 @@ const REPLICATE_BASE = 'https://api.replicate.com/v1';
 // last stage. 5s gives us ~18 polls for a 90s wait, leaving room for all
 // five stages plus retry-on-429 attempts.
 const POLL_INTERVAL_MS = 5000;
-const POLL_TIMEOUT_MS = 180_000;
+const POLL_TIMEOUT_MS = 480_000; // Increased to 8 minutes for slow cold starts
 
 /**
  * Run a Replicate model and return its output. Throws on failure or timeout —
@@ -71,7 +71,13 @@ async function createWithRateLimitRetry(
 ): Promise<PredictionResponse> {
   const MAX_RETRIES = 5;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const resp = await fetch(`${REPLICATE_BASE}/predictions`, {
+    const isDeployment = version.includes('/');
+    const url = isDeployment
+      ? `${REPLICATE_BASE}/deployments/${version}/predictions`
+      : `${REPLICATE_BASE}/predictions`;
+    const bodyObj = isDeployment ? { input } : { version, input };
+
+    const resp = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Token ${config.token}`,
@@ -80,7 +86,7 @@ async function createWithRateLimitRetry(
         // on warm boots. Cold starts fall back to the polling loop below.
         Prefer: 'wait=30',
       },
-      body: JSON.stringify({ version, input }),
+      body: JSON.stringify(bodyObj),
     });
 
     if (resp.ok) return resp.json();

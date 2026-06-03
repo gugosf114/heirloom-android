@@ -22,6 +22,10 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = RestoreState.Picked(uri)
     }
 
+    fun photoCropped(uri: Uri) {
+        _state.value = RestoreState.Picked(uri)
+    }
+
     fun reset() {
         stageRotator?.cancel()
         _state.value = RestoreState.Idle
@@ -47,7 +51,7 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
                 Stage.Upscaling to 18_000L,
                 Stage.CheckingIdentity to 6_000L,
                 Stage.Colorizing to 12_000L,
-                Stage.Finalizing to Long.MAX_VALUE,
+                Stage.Finalizing to Long.MAX_VALUE
             )
             for ((stage, hold) in schedule) {
                 _state.value = RestoreState.Processing(source, stage)
