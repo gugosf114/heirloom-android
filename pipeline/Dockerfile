@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3.10 python3-pip python3.10-distutils python3.10-venv git libgl1 libglib2.0-0 ca-certificates wget \
+      build-essential cmake unzip bzip2 \
  && rm -rf /var/lib/apt/lists/*
 RUN ln -sf /usr/bin/python3.10 /usr/bin/python && python -m pip install --upgrade pip
 
@@ -48,6 +49,31 @@ RUN git clone --depth 1 https://github.com/piddnad/DDColor /opt/DDColor && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir -r /opt/DDColor/requirements.txt && \
     wget -q -O /opt/weights/ddcolor_modelscope.pth \
       https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_modelscope.pth
+
+# BOPB — Microsoft Bringing-Old-Photos-Back-to-Life (own venv; dlib + sync-batchnorm,
+# old torch). Canonical setup from upstream README; torch pin + checkpoint URLs are
+# the most likely first-build failure points — verify and adjust.
+RUN git clone --depth 1 https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life.git /opt/BOPB && \
+    cd /opt/BOPB/Face_Enhancement/models/networks && \
+      git clone --depth 1 https://github.com/vacancy/Synchronized-BatchNorm-PyTorch && \
+      cp -rf Synchronized-BatchNorm-PyTorch/sync_batchnorm . && \
+    cd /opt/BOPB/Global/detection_models && \
+      git clone --depth 1 https://github.com/vacancy/Synchronized-BatchNorm-PyTorch && \
+      cp -rf Synchronized-BatchNorm-PyTorch/sync_batchnorm . && \
+    cd /opt/BOPB/Face_Detection && \
+      wget -q http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2 && \
+      bzip2 -d shape_predictor_68_face_landmarks.dat.bz2 && \
+    cd /opt/BOPB/Face_Enhancement && \
+      wget -q https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life/releases/download/v1.0/face_checkpoints.zip && \
+      unzip -q face_checkpoints.zip && \
+    cd /opt/BOPB/Global && \
+      wget -q https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life/releases/download/v1.0/global_checkpoints.zip && \
+      unzip -q global_checkpoints.zip && \
+    python -m venv /opt/BOPB/venv && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir -U pip && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir torch==1.10.1+cu113 torchvision==0.11.2+cu113 --index-url https://download.pytorch.org/whl/cu113 && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir dlib && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir -r /opt/BOPB/requirements.txt
 
 WORKDIR /srv
 COPY app /srv/app

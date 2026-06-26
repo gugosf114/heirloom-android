@@ -10,6 +10,6 @@ Port status (-> fully Replicate-free pipeline):
   adaface     DONE (app/adaface.py, in-process)
   codeformer  PORTED (vendored repo + own venv; pending first-build verification)
   ddcolor     PORTED (vendored repo + own venv; pending first-build verification)
-  bopb        TODO (Microsoft Bringing-Old-Photos-Back-to-Life — vendored repo)
-  -- remaining: server.py rewire to local stages + output delivery, then BOPB
+  bopb        PORTED (vendored repo + own venv; pending first-build verification)
+  -- server.py is now fully local (no Replicate). Next: first Cloud Build + smoke.
 """
