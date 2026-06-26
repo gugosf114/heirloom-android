@@ -6,6 +6,10 @@ python-multipart==0.0.20
 pillow==10.2.0
 numpy==1.24.4
 opencv-python-headless==4.10.0.84
+# Real-ESRGAN stage. basicsr 1.4.2 imports torchvision.transforms.functional_tensor,
+# which exists in torchvision 0.15.2 (pinned in the Dockerfile) but was removed in 0.17+.
+basicsr==1.4.2
+realesrgan==0.3.0
 facenet-pytorch==2.5.3
 transformers==4.46.3
 huggingface_hub==0.26.5
