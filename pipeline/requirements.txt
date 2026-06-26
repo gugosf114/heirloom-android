@@ -1,0 +1,15 @@
+# torch / torchvision are installed separately in the Dockerfile (cu118 wheels).
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+python-multipart==0.0.20
+pillow==10.2.0
+numpy==1.24.4
+opencv-python-headless==4.10.0.84
+facenet-pytorch==2.5.3
+transformers==4.46.3
+huggingface_hub==0.26.5
+safetensors==0.4.5
+omegaconf==2.3.0
+pyyaml==6.0.2
+fvcore==0.1.5.post20221221
