@@ -5,7 +5,7 @@ FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3.10 python3-pip python3.10-distutils libgl1 libglib2.0-0 ca-certificates wget \
+      python3.10 python3-pip python3.10-distutils python3.10-venv git libgl1 libglib2.0-0 ca-certificates wget \
  && rm -rf /var/lib/apt/lists/*
 RUN ln -sf /usr/bin/python3.10 /usr/bin/python && python -m pip install --upgrade pip
 
@@ -25,6 +25,29 @@ RUN mkdir -p /opt/weights && \
     wget -q -O /opt/weights/RealESRGAN_x2plus.pth \
       https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth
 ENV ESRGAN_WEIGHTS=/opt/weights/RealESRGAN_x2plus.pth
+
+# --- Vendored models, each in its own venv (isolates old/conflicting deps) ---
+# NOTE: weight URLs + repo entrypoints are best-effort from the upstream docs;
+# verify on the first Cloud Build and adjust.
+
+# CodeFormer (ships its own basicsr fork — must stay isolated).
+RUN git clone --depth 1 https://github.com/sczhou/CodeFormer /opt/CodeFormer && \
+    python -m venv /opt/CodeFormer/venv && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir -U pip && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir -r /opt/CodeFormer/requirements.txt && \
+    cd /opt/CodeFormer && /opt/CodeFormer/venv/bin/python basicsr/setup.py develop && \
+    /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py facelib && \
+    /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py CodeFormer
+
+# DDColor (own venv).
+RUN git clone --depth 1 https://github.com/piddnad/DDColor /opt/DDColor && \
+    python -m venv /opt/DDColor/venv && \
+    /opt/DDColor/venv/bin/pip install --no-cache-dir -U pip && \
+    /opt/DDColor/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
+    /opt/DDColor/venv/bin/pip install --no-cache-dir -r /opt/DDColor/requirements.txt && \
+    wget -q -O /opt/weights/ddcolor_modelscope.pth \
+      https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_modelscope.pth
 
 WORKDIR /srv
 COPY app /srv/app

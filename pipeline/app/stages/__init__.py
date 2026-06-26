@@ -6,9 +6,10 @@ numpy arrays (OpenCV convention); the orchestrator handles JPEG <-> array and
 delivers the final image to the caller without persisting anything.
 
 Port status (-> fully Replicate-free pipeline):
-  esrgan      DONE
-  adaface     DONE (app/adaface.py)
-  codeformer  TODO
-  ddcolor     TODO
+  esrgan      DONE (in-process)
+  adaface     DONE (app/adaface.py, in-process)
+  codeformer  PORTED (vendored repo + own venv; pending first-build verification)
+  ddcolor     PORTED (vendored repo + own venv; pending first-build verification)
   bopb        TODO (Microsoft Bringing-Old-Photos-Back-to-Life — vendored repo)
+  -- remaining: server.py rewire to local stages + output delivery, then BOPB
 """
