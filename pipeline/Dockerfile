@@ -75,8 +75,8 @@ RUN git clone --depth 1 https://github.com/microsoft/Bringing-Old-Photos-Back-to
     /opt/BOPB/venv/bin/pip install --no-cache-dir -U pip wheel packaging && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir torch==1.12.1+cu113 torchvision==0.13.1+cu113 --index-url https://download.pytorch.org/whl/cu113 && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir "numpy<2" && \
-    git clone --depth 1 https://github.com/davisking/dlib /opt/dlib && \
-    cd /opt/dlib && /opt/BOPB/venv/bin/python setup.py install --no DLIB_USE_CUDA --set DLIB_NO_GUI_SUPPORT=YES && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir dlib-bin && \
+    sed -i '/dlib/d' /opt/BOPB/requirements.txt && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir -r /opt/BOPB/requirements.txt
 
 WORKDIR /srv
