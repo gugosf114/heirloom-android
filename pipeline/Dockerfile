@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       python3.10 python3-pip python3.10-distutils python3.10-venv git libgl1 libglib2.0-0 ca-certificates wget \
-      build-essential cmake unzip bzip2 \
+      build-essential cmake unzip bzip2 pkg-config libopenblas-dev liblapack-dev libx11-dev \
  && rm -rf /var/lib/apt/lists/*
 RUN ln -sf /usr/bin/python3.10 /usr/bin/python && python -m pip install --upgrade pip
 
@@ -75,7 +75,8 @@ RUN git clone --depth 1 https://github.com/microsoft/Bringing-Old-Photos-Back-to
     /opt/BOPB/venv/bin/pip install --no-cache-dir -U pip && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir torch==1.12.1+cu113 torchvision==0.13.1+cu113 --index-url https://download.pytorch.org/whl/cu113 && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir "numpy<2" && \
-    /opt/BOPB/venv/bin/pip install --no-cache-dir dlib && \
+    git clone --depth 1 https://github.com/davisking/dlib /opt/dlib && \
+    cd /opt/dlib && /opt/BOPB/venv/bin/python setup.py install --no DLIB_USE_CUDA --set DLIB_NO_GUI_SUPPORT=YES && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir -r /opt/BOPB/requirements.txt
 
 WORKDIR /srv
