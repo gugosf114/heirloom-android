@@ -34,7 +34,7 @@ ENV ESRGAN_WEIGHTS=/opt/weights/RealESRGAN_x2plus.pth
 # CodeFormer (ships its own basicsr fork — must stay isolated).
 RUN git clone --depth 1 https://github.com/sczhou/CodeFormer /opt/CodeFormer && \
     python -m venv /opt/CodeFormer/venv && \
-    /opt/CodeFormer/venv/bin/pip install --no-cache-dir -U pip setuptools wheel packaging && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir -U pip wheel packaging "setuptools<70" && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir -r /opt/CodeFormer/requirements.txt && \
@@ -45,7 +45,7 @@ RUN git clone --depth 1 https://github.com/sczhou/CodeFormer /opt/CodeFormer && 
 # DDColor (own venv).
 RUN git clone --depth 1 https://github.com/piddnad/DDColor /opt/DDColor && \
     python -m venv /opt/DDColor/venv && \
-    /opt/DDColor/venv/bin/pip install --no-cache-dir -U pip setuptools wheel packaging && \
+    /opt/DDColor/venv/bin/pip install --no-cache-dir -U pip wheel packaging "setuptools<70" && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir -r /opt/DDColor/requirements.txt && \
@@ -72,7 +72,7 @@ RUN git clone --depth 1 https://github.com/microsoft/Bringing-Old-Photos-Back-to
       wget -q https://github.com/microsoft/Bringing-Old-Photos-Back-to-Life/releases/download/v1.0/global_checkpoints.zip && \
       unzip -q global_checkpoints.zip && \
     python -m venv /opt/BOPB/venv && \
-    /opt/BOPB/venv/bin/pip install --no-cache-dir -U pip setuptools wheel packaging && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir -U pip wheel packaging "setuptools<70" && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir torch==1.12.1+cu113 torchvision==0.13.1+cu113 --index-url https://download.pytorch.org/whl/cu113 && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir "numpy<2" && \
     git clone --depth 1 https://github.com/davisking/dlib /opt/dlib && \
