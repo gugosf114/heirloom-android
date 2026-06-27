@@ -36,6 +36,7 @@ RUN git clone --depth 1 https://github.com/sczhou/CodeFormer /opt/CodeFormer && 
     python -m venv /opt/CodeFormer/venv && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir -U pip && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir -r /opt/CodeFormer/requirements.txt && \
     cd /opt/CodeFormer && /opt/CodeFormer/venv/bin/python basicsr/setup.py develop && \
     /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py facelib && \
@@ -46,6 +47,7 @@ RUN git clone --depth 1 https://github.com/piddnad/DDColor /opt/DDColor && \
     python -m venv /opt/DDColor/venv && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir -U pip && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
+    /opt/DDColor/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir -r /opt/DDColor/requirements.txt && \
     wget -q -O /opt/weights/ddcolor_modelscope.pth \
       https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_modelscope.pth
@@ -71,7 +73,8 @@ RUN git clone --depth 1 https://github.com/microsoft/Bringing-Old-Photos-Back-to
       unzip -q global_checkpoints.zip && \
     python -m venv /opt/BOPB/venv && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir -U pip && \
-    /opt/BOPB/venv/bin/pip install --no-cache-dir torch==1.10.1+cu113 torchvision==0.11.2+cu113 --index-url https://download.pytorch.org/whl/cu113 && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir torch==1.12.1+cu113 torchvision==0.13.1+cu113 --index-url https://download.pytorch.org/whl/cu113 && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir dlib && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir -r /opt/BOPB/requirements.txt
 
