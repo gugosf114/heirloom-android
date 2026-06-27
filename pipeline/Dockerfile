@@ -38,6 +38,7 @@ RUN git clone --depth 1 https://github.com/sczhou/CodeFormer /opt/CodeFormer && 
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir -r /opt/CodeFormer/requirements.txt && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
     cd /opt/CodeFormer && /opt/CodeFormer/venv/bin/python basicsr/setup.py develop && \
     /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py facelib && \
     /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py CodeFormer
@@ -49,6 +50,7 @@ RUN git clone --depth 1 https://github.com/piddnad/DDColor /opt/DDColor && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/DDColor/venv/bin/pip install --no-cache-dir -r /opt/DDColor/requirements.txt && \
+    /opt/DDColor/venv/bin/pip install --no-cache-dir "numpy<2" && \
     wget -q -O /opt/weights/ddcolor_modelscope.pth \
       https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_modelscope.pth
 
@@ -77,7 +79,8 @@ RUN git clone --depth 1 https://github.com/microsoft/Bringing-Old-Photos-Back-to
     /opt/BOPB/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/BOPB/venv/bin/pip install --no-cache-dir dlib-bin && \
     sed -i '/dlib/d' /opt/BOPB/requirements.txt && \
-    /opt/BOPB/venv/bin/pip install --no-cache-dir -r /opt/BOPB/requirements.txt
+    /opt/BOPB/venv/bin/pip install --no-cache-dir -r /opt/BOPB/requirements.txt && \
+    /opt/BOPB/venv/bin/pip install --no-cache-dir "numpy<2"
 
 WORKDIR /srv
 COPY app /srv/app

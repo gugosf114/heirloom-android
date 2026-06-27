@@ -30,8 +30,11 @@ def run(in_dir: str, out_dir: str) -> str:
         cwd=BOPB_DIR,
         timeout=900,
     )
-    # run.py writes the finished image to <out_dir>/final_output/.
-    hits = glob.glob(os.path.join(out_dir, "final_output", "*"))
+    # We want BOPB's Stage-1 global restoration (scratch/tear repair), which lands in
+    # stage_1_restore_output/restored_image/. final_output is the face-blended result
+    # (redundant with CodeFormer downstream) and is often empty.
+    hits = (glob.glob(os.path.join(out_dir, "stage_1_restore_output", "restored_image", "*"))
+            or glob.glob(os.path.join(out_dir, "final_output", "*")))
     if not hits:
         produced = [os.path.relpath(p, out_dir)
                     for p in glob.glob(os.path.join(out_dir, "**"), recursive=True)][:25]
