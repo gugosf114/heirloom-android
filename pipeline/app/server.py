@@ -82,36 +82,57 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     yield {"kind": "stage_done", "stage": "auto_level", "t_ms": t(),
            "extra": {"note": "normalize handled inline by downstream stages"}}
 
+    # Working image flows through each stage. A stage failure is logged in its
+    # event and the previous image passes through — best-effort, a single bad
+    # model never kills the whole restore.
+    cur = orig_path
+
     # Stage 1: BOPB (scratch/tear repair) — folder in, folder out.
     yield {"kind": "stage_start", "stage": "bopb", "t_ms": t()}
     s = time.monotonic()
-    bopb_path = bopb.run(in_dir, os.path.join(workdir, "bopb"))
-    yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
-           "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+    try:
+        cur = bopb.run(in_dir, os.path.join(workdir, "bopb"))
+        yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
+               "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+    except Exception as e:
+        yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
+               "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                         "skipped": True, "error": str(e)[:600]}}
 
     # Stage 2: CodeFormer (face restoration).
     yield {"kind": "stage_start", "stage": "codeformer", "t_ms": t()}
     s = time.monotonic()
-    cf_path = codeformer.run(bopb_path, os.path.join(workdir, "cf"), fidelity=fidelity, upscale=2)
-    yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
-           "extra": {"duration_ms": int((time.monotonic() - s) * 1000), "fidelity": fidelity}}
+    try:
+        cur = codeformer.run(cur, os.path.join(workdir, "cf"), fidelity=fidelity, upscale=2)
+        yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
+               "extra": {"duration_ms": int((time.monotonic() - s) * 1000), "fidelity": fidelity}}
+    except Exception as e:
+        yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
+               "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                         "skipped": True, "error": str(e)[:600]}}
 
     # Stage 3: Real-ESRGAN (in-process upscale + denoise).
     yield {"kind": "stage_start", "stage": "esrgan", "t_ms": t()}
     s = time.monotonic()
-    restored_bgr = esrgan.run(cv2.imread(cf_path, cv2.IMREAD_COLOR), outscale=2)
-    restored_path = os.path.join(workdir, "restored.png")
-    cv2.imwrite(restored_path, restored_bgr)
-    yield {"kind": "stage_done", "stage": "esrgan", "t_ms": t(),
-           "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+    try:
+        restored_bgr = esrgan.run(cv2.imread(cur, cv2.IMREAD_COLOR), outscale=2)
+        restored_path = os.path.join(workdir, "restored.png")
+        cv2.imwrite(restored_path, restored_bgr)
+        cur = restored_path
+        yield {"kind": "stage_done", "stage": "esrgan", "t_ms": t(),
+               "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+    except Exception as e:
+        yield {"kind": "stage_done", "stage": "esrgan", "t_ms": t(),
+               "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                         "skipped": True, "error": str(e)[:600]}}
 
-    # Stage 4: AdaFace identity gate (local: original vs restored).
+    # Stage 4: AdaFace identity gate (local: original vs current restored).
     yield {"kind": "stage_start", "stage": "adaface", "t_ms": t()}
     s = time.monotonic()
     cosine: Optional[float] = None
     identity_warning = False
     try:
-        cosine = GATE.compare(orig_path, restored_path)
+        cosine = GATE.compare(orig_path, cur)
         identity_warning = cosine is None or cosine < threshold
         yield {"kind": "stage_done", "stage": "adaface", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
@@ -121,7 +142,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
         cosine, identity_warning = 0.0, True
         yield {"kind": "stage_done", "stage": "adaface", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                         "error": str(e), "identity_warning": True}}
+                         "error": str(e)[:600], "identity_warning": True}}
 
     # Stage 5: DDColor (B&W input only).
     yield {"kind": "stage_start", "stage": "colorize_check", "t_ms": t()}
@@ -129,18 +150,22 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     yield {"kind": "stage_done", "stage": "colorize_check", "t_ms": t(),
            "extra": {"is_grayscale": input_is_gray, "threshold": gray_threshold}}
 
-    final_path = restored_path
     was_colorized = False
     if input_is_gray:
         yield {"kind": "stage_start", "stage": "ddcolor", "t_ms": t()}
         s = time.monotonic()
-        dd_in = os.path.join(workdir, "dd_in")
-        os.makedirs(dd_in, exist_ok=True)
-        shutil.copy(restored_path, os.path.join(dd_in, "restored.png"))
-        final_path = ddcolor.run(dd_in, os.path.join(workdir, "dd_out"))
-        was_colorized = True
-        yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
-               "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+        try:
+            dd_in = os.path.join(workdir, "dd_in")
+            os.makedirs(dd_in, exist_ok=True)
+            shutil.copy(cur, os.path.join(dd_in, "img.png"))
+            cur = ddcolor.run(dd_in, os.path.join(workdir, "dd_out"))
+            was_colorized = True
+            yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
+                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+        except Exception as e:
+            yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
+                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                             "skipped": True, "error": str(e)[:600]}}
     else:
         yield {"kind": "stage_skipped", "stage": "ddcolor", "t_ms": t(),
                "reason": "Input is color; colorization skipped."}
@@ -150,7 +175,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
            "extra": {"note": "Delegated to Android client RenderEffect for v1."}}
 
     yield {"kind": "final", "t_ms": t(), "result": {
-        "restored_url": _data_url(_encode_jpeg(final_path)),
+        "restored_url": _data_url(_encode_jpeg(cur)),
         "cosine_similarity": cosine,
         "identity_warning": identity_warning,
         "was_colorized": was_colorized,

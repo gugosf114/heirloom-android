@@ -19,7 +19,7 @@ BOPB_PY = os.getenv("BOPB_PY", "/opt/BOPB/venv/bin/python")
 def run(in_dir: str, out_dir: str) -> str:
     """in_dir: folder holding the single input image; returns final output path."""
     os.makedirs(out_dir, exist_ok=True)
-    run_cmd(
+    out = run_cmd(
         [
             BOPB_PY, "run.py",
             "--input_folder", in_dir,
@@ -33,5 +33,9 @@ def run(in_dir: str, out_dir: str) -> str:
     # run.py writes the finished image to <out_dir>/final_output/.
     hits = glob.glob(os.path.join(out_dir, "final_output", "*"))
     if not hits:
-        raise RuntimeError(f"BOPB produced no output under {out_dir}/final_output")
+        produced = [os.path.relpath(p, out_dir)
+                    for p in glob.glob(os.path.join(out_dir, "**"), recursive=True)][:25]
+        raise RuntimeError(
+            f"BOPB no final_output. produced={produced} | log_tail={(out or '')[-900:]}"
+        )
     return sorted(hits)[0]
