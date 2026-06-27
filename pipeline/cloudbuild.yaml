@@ -7,12 +7,12 @@ steps:
       - -c
       - |
         REG=us-central1-docker.pkg.dev/bakers-agent/heirloom/pipeline
-        docker pull $REG:cache || docker pull $REG:v9 || true
+        docker pull $$REG:cache || docker pull $$REG:v9 || true
         docker build \
-          --cache-from $REG:cache --cache-from $REG:v9 \
-          -t $REG:${_TAG} -t $REG:cache .
-        docker push $REG:${_TAG}
-        docker push $REG:cache
+          --cache-from $$REG:cache --cache-from $$REG:v9 \
+          -t $$REG:${_TAG} -t $$REG:cache .
+        docker push $$REG:${_TAG}
+        docker push $$REG:cache
 timeout: 3600s
 options:
   machineType: E2_HIGHCPU_8
