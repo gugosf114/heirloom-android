@@ -38,10 +38,11 @@ RUN git clone --depth 1 https://github.com/sczhou/CodeFormer /opt/CodeFormer && 
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118 && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
     /opt/CodeFormer/venv/bin/pip install --no-cache-dir -r /opt/CodeFormer/requirements.txt && \
-    /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
     cd /opt/CodeFormer && /opt/CodeFormer/venv/bin/python basicsr/setup.py develop && \
     /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py facelib && \
-    /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py CodeFormer
+    /opt/CodeFormer/venv/bin/python scripts/download_pretrained_models.py CodeFormer && \
+    /opt/CodeFormer/venv/bin/pip install --no-cache-dir "numpy<2" && \
+    /opt/CodeFormer/venv/bin/python -c "import numpy,torch,torchvision,cv2; print('CF import OK; numpy', numpy.__version__)"
 
 # DDColor (own venv).
 RUN git clone --depth 1 https://github.com/piddnad/DDColor /opt/DDColor && \

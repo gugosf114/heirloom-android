@@ -97,7 +97,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     except Exception as e:
         yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                         "skipped": True, "error": str(e)[:600]}}
+                         "skipped": True, "error": str(e)[:1500]}}
 
     # Stage 2: CodeFormer (face restoration).
     yield {"kind": "stage_start", "stage": "codeformer", "t_ms": t()}
@@ -109,7 +109,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     except Exception as e:
         yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                         "skipped": True, "error": str(e)[:600]}}
+                         "skipped": True, "error": str(e)[:1500]}}
 
     # Stage 3: Real-ESRGAN (in-process upscale + denoise).
     yield {"kind": "stage_start", "stage": "esrgan", "t_ms": t()}
@@ -124,7 +124,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     except Exception as e:
         yield {"kind": "stage_done", "stage": "esrgan", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                         "skipped": True, "error": str(e)[:600]}}
+                         "skipped": True, "error": str(e)[:1500]}}
 
     # Stage 4: AdaFace identity gate (local: original vs current restored).
     yield {"kind": "stage_start", "stage": "adaface", "t_ms": t()}
@@ -142,7 +142,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
         cosine, identity_warning = 0.0, True
         yield {"kind": "stage_done", "stage": "adaface", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                         "error": str(e)[:600], "identity_warning": True}}
+                         "error": str(e)[:1500], "identity_warning": True}}
 
     # Stage 5: DDColor (B&W input only).
     yield {"kind": "stage_start", "stage": "colorize_check", "t_ms": t()}
@@ -165,7 +165,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
         except Exception as e:
             yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
                    "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                             "skipped": True, "error": str(e)[:600]}}
+                             "skipped": True, "error": str(e)[:1500]}}
     else:
         yield {"kind": "stage_skipped", "stage": "ddcolor", "t_ms": t(),
                "reason": "Input is color; colorization skipped."}
