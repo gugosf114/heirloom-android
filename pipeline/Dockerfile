@@ -1,6 +1,6 @@
 # Heirloom restoration pipeline — Cloud Run (L4, scale-to-zero).
 # CUDA 11.8 / Python 3.10 to match the proven cog-adaface build.
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
