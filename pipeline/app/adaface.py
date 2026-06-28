@@ -69,17 +69,20 @@ class AdaFaceGate:
         print("AdaFace setup: ready", flush=True)
         return self
 
-    def compare(self, path_a: str, path_b: str) -> Optional[float]:
+    def compare(self, path_a: str, path_b: str):
+        """Returns (cosine_or_None, info_dict)."""
         self.ready()
-        emb1, _ = self._embed(path_a)
-        emb2, _ = self._embed(path_b)
+        emb1, c1 = self._embed(path_a)
+        emb2, c2 = self._embed(path_b)
+        info = {"det_orig": round(c1, 3), "det_restored": round(c2, 3),
+                "face_orig": emb1 is not None, "face_restored": emb2 is not None}
         if emb1 is None or emb2 is None:
-            return None
+            return None, info
         n1 = float(np.linalg.norm(emb1))
         n2 = float(np.linalg.norm(emb2))
         if n1 < 1e-8 or n2 < 1e-8:
-            return None
-        return float(np.dot(emb1, emb2) / (n1 * n2))
+            return None, info
+        return float(np.dot(emb1, emb2) / (n1 * n2)), info
 
     def _embed(self, image_path: str) -> Tuple[Optional[np.ndarray], float]:
         img = Image.open(image_path).convert("RGB")

@@ -19,12 +19,14 @@ def run(in_dir: str, out_dir: str) -> str:
     os.makedirs(out_dir, exist_ok=True)
     run_cmd(
         [
-            DDCOLOR_PY, "infer.py",
+            DDCOLOR_PY, "scripts/infer.py",
             "--model_path", DDCOLOR_WEIGHTS,
+            "--model_size", "large",
             "--input", in_dir,
             "--output", out_dir,
         ],
         cwd=DDCOLOR_DIR,
+        env={**os.environ, "PYTHONPATH": DDCOLOR_DIR},
     )
     hits = [f for f in glob.glob(os.path.join(out_dir, "*")) if not f.endswith(".txt")]
     if not hits:

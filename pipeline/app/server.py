@@ -132,12 +132,12 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     cosine: Optional[float] = None
     identity_warning = False
     try:
-        cosine = GATE.compare(orig_path, cur)
+        cosine, det = GATE.compare(orig_path, cur)
         identity_warning = cosine is None or cosine < threshold
         yield {"kind": "stage_done", "stage": "adaface", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
                          "cosine_similarity": cosine, "threshold": threshold,
-                         "identity_warning": identity_warning}}
+                         "identity_warning": identity_warning, **det}}
     except Exception as e:
         cosine, identity_warning = 0.0, True
         yield {"kind": "stage_done", "stage": "adaface", "t_ms": t(),
