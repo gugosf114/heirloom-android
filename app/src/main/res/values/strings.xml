@@ -24,9 +24,11 @@
     <string name="error_network">No internet connection.</string>
 
     <string name="paywall_title">Unlock Heirloom</string>
-    <string name="paywall_lifetime">Lifetime — $4.99</string>
-    <string name="paywall_yearly">Yearly — $9.99</string>
-    <string name="paywall_subtitle">No watermarks. No ads. No subscriptions tricks.</string>
-    <string name="free_tier_remaining">%1$d free restorations left</string>
+    <string name="paywall_body">Your free restoration is used. Unlock unlimited restorations — pay once, keep it forever.</string>
+    <string name="paywall_cta">Unlock forever — %1$s</string>
+    <string name="paywall_unavailable">Store unavailable right now. Try again in a moment.</string>
+    <string name="paywall_not_now">Not now</string>
+    <string name="paywall_subtitle">No watermarks. No ads. No subscription tricks.</string>
+    <string name="free_tier_remaining">%1$d free restoration left</string>
     <string name="armenia_free">Free in Armenia. Always.</string>
 </resources>
