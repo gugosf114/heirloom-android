@@ -25,6 +25,20 @@ sealed interface Entitlement {
     data object PaywallRequired : Entitlement
 }
 
+/**
+ * Whether this entitlement permits starting a restoration. The UI must gate on
+ * THIS, not just `!= PaywallRequired`: a FreeTier(0) can exist transiently at
+ * startup (before refresh) or if billing never reconnects, and must NOT allow a
+ * free restore.
+ */
+fun Entitlement.allowsRestore(): Boolean = when (this) {
+    Entitlement.ArmeniaExempt,
+    Entitlement.LifetimeUnlocked,
+    Entitlement.YearlySubscriber -> true
+    is Entitlement.FreeTier -> remaining > 0
+    Entitlement.PaywallRequired -> false
+}
+
 /** Product IDs. Wire to actual SKU IDs in Play Console before launch. */
 object ProductIds {
     const val LIFETIME = "heirloom_lifetime_unlock_v1"

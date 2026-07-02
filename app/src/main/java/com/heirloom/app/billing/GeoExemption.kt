@@ -28,15 +28,16 @@ import kotlin.coroutines.resume
 object GeoExemption {
 
     suspend fun isArmeniaExempt(context: Context, billing: BillingClient?): Boolean {
-        if (locale() == "AM") return true
+        // Device locale is intentionally NOT a sufficient signal on its own — it's
+        // a one-tap Settings change, so locale-only would let anyone opt into the
+        // free tier. Keep the harder-to-spoof signals (SIM / network / Play billing
+        // country); a real Armenian SIM or Play account still qualifies, so the
+        // diaspora-friendly intent survives.
         if (simCountry(context) == "AM") return true
         if (networkCountry(context) == "AM") return true
         if (billing != null && billingCountry(billing) == "AM") return true
         return false
     }
-
-    private fun locale(): String =
-        Locale.getDefault().country.uppercase(Locale.ROOT)
 
     private fun simCountry(context: Context): String {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager

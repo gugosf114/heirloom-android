@@ -42,6 +42,7 @@ import com.android.billingclient.api.ProductDetails
 import com.heirloom.app.HeirloomApp
 import com.heirloom.app.R
 import com.heirloom.app.billing.Entitlement
+import com.heirloom.app.billing.allowsRestore
 import com.heirloom.app.data.RestoreState
 import com.heirloom.app.data.RestoreViewModel
 import com.heirloom.app.data.Stage
@@ -72,9 +73,16 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     LaunchedEffect(entitlement) {
         if (showPaywall && entitlement !is Entitlement.PaywallRequired) showPaywall = false
     }
-    // One free restoration is consumed only when a restore actually succeeds.
+    // One free restoration is consumed only when a restore actually succeeds —
+    // exactly once per result. Keyed on the restored URL (unique per restore) and
+    // saved across config changes so a rotation/re-entry while Done can't double-count.
+    var lastConsumedUrl by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(state) {
-        if (state is RestoreState.Done) billing.consumeFreeRestoration()
+        val s = state
+        if (s is RestoreState.Done && s.restoredUrl != lastConsumedUrl) {
+            lastConsumedUrl = s.restoredUrl
+            billing.consumeFreeRestoration()
+        }
     }
 
     // 1. Configure the ML Kit Document Scanner
@@ -146,8 +154,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                     is RestoreState.Picked -> PickedBody(
                         sourceUri = current.source.toString(),
                         onRestore = {
-                            if (entitlement is Entitlement.PaywallRequired) showPaywall = true
-                            else viewModel.startRestoration()
+                            if (entitlement.allowsRestore()) viewModel.startRestoration()
+                            else showPaywall = true
                         },
                         onReset = viewModel::reset,
                     )
@@ -178,7 +186,12 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                     )
                     is RestoreState.Failed -> FailedBody(
                         message = current.message,
-                        onRetry = viewModel::startRestoration,
+                        onRetry = {
+                            // Retry must respect the same paywall gate as the initial
+                            // restore — a failure mid-session shouldn't be a free bypass.
+                            if (entitlement.allowsRestore()) viewModel.startRestoration()
+                            else showPaywall = true
+                        },
                         onReset = viewModel::reset,
                     )
                 }
