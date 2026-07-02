@@ -43,12 +43,11 @@ ESRGAN_VERSION = "b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5e
 # DDColor by piddnad. Last published 2024-01-12.
 DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa695"
 
-# AdaFace: NO active dedicated face-embedding model exists on Replicate
-# as of 2026-04-25. apna-mart/face-match is offline. chenxwh/adaface 404.
-# No insightface, arcface, or facenet model is alive on the platform.
-# Pipeline gracefully skips the identity gate when this is left as the
-# placeholder string (cosine_similarity returns null, identity_warning
-# stays false). George decides the substitute or self-hosts a Cog.
+# AdaFace identity gate — self-hosted Cog deployment (see README session log).
+# This is a Replicate *deployment* ref, not a version SHA; the pipeline
+# routes deployment refs accordingly. If this deployment is paused/removed,
+# every restore will surface identity_warning=true via the error path — set
+# back to "PLACEHOLDER" to disable the gate gracefully instead.
 ADAFACE_VERSION = "gugosf114/heirloom-adaface"
 
 # Set REPLICATE_API_TOKEN via:

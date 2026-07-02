@@ -25,6 +25,9 @@ import { isGrayscale } from './saturation';
 
 interface Env {
   REPLICATE_API_TOKEN: string;
+  /** Optional shared secret. When set (wrangler secret put APP_SHARED_SECRET),
+   *  requests must carry a matching X-App-Key header. Unset = open (dev). */
+  APP_SHARED_SECRET?: string;
   IDENTITY_THRESHOLD: string;
   CODEFORMER_FIDELITY: string;
   GRAYSCALE_THRESHOLD: string;
@@ -62,6 +65,10 @@ export default {
       return new Response('Method not allowed', { status: 405 });
     }
 
+    if (env.APP_SHARED_SECRET && request.headers.get('X-App-Key') !== env.APP_SHARED_SECRET) {
+      return jsonResponse({ error: 'unauthorized' }, 401);
+    }
+
     if (url.pathname !== '/restore' && url.pathname !== '/restore-stream') {
       return new Response('Not found', { status: 404 });
     }
@@ -73,8 +80,8 @@ export default {
     let bytes: Uint8Array;
     try {
       const formData = await request.formData();
-      const image = formData.get('image');
-      if (!(image instanceof File) && !(image instanceof Blob)) {
+      const image = formData.get('image') as unknown;
+      if (!(image instanceof Blob)) {
         return jsonResponse({ error: 'image field is required' }, 400);
       }
       bytes = new Uint8Array(await image.arrayBuffer());
@@ -329,11 +336,14 @@ async function* pipelineEvents(bytes: Uint8Array, env: Env): AsyncGenerator<Stag
 }
 
 function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  // Chunked fromCharCode — the old per-byte string concat burned enough
+  // Worker CPU on 5MB images to risk hitting the CPU limit.
+  const chunk = 0x8000;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += chunk) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, i + chunk)));
   }
-  return `data:${mime};base64,${btoa(binary)}`;
+  return `data:${mime};base64,${btoa(parts.join(''))}`;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {

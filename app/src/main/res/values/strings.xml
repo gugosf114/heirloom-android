@@ -18,6 +18,7 @@
     <string name="status_colorizing">Colorizing…</string>
     <string name="status_finalizing">Finalizing…</string>
 
+    <string name="identity_unverified">Identity check unavailable for this restore</string>
     <string name="warning_identity_drift">This photo may be too damaged for faithful restoration. The face in the result is noticeably different from the original.</string>
     <string name="error_generic">Something went wrong. Try again.</string>
     <string name="error_network">No internet connection.</string>
