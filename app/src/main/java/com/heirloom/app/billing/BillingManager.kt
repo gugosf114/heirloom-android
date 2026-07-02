@@ -12,9 +12,13 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -43,8 +47,14 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
         )
         .build()
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // Start from the correct state: an exhausted user must open on PaywallRequired,
+    // never FreeTier(0), which the UI would otherwise treat as a free restore
+    // before refresh() runs (or if billing never reconnects).
     private val _entitlement = MutableStateFlow<Entitlement>(
-        Entitlement.FreeTier(usage.remaining())
+        if (usage.remaining() > 0) Entitlement.FreeTier(usage.remaining())
+        else Entitlement.PaywallRequired
     )
     val entitlement: StateFlow<Entitlement> = _entitlement.asStateFlow()
 
@@ -136,7 +146,12 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
         val params = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(productParamsBuilder.build()))
             .build()
-        client.launchBillingFlow(activity, params)
+        val result = client.launchBillingFlow(activity, params)
+        // If Play reports the item is already owned, onPurchasesUpdated does NOT
+        // fire — reconcile from the purchase list so a paid user isn't stuck gated.
+        if (result.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) {
+            scope.launch { refresh() }
+        }
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
