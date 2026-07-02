@@ -19,9 +19,15 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // Optional shared secret gating the worker (see worker/src/index.ts).
+    // Set in ~/.gradle/gradle.properties: HEIRLOOM_APP_KEY=<value of the
+    // APP_SHARED_SECRET wrangler secret>. Empty = header not sent (dev/open).
+    val appSharedSecret = (project.findProperty("HEIRLOOM_APP_KEY") as? String) ?: ""
+
     buildTypes {
         debug {
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker-dev.gugosf.workers.dev\"")
+            buildConfigField("String", "APP_SHARED_SECRET", "\"$appSharedSecret\"")
         }
         release {
             isMinifyEnabled = true
@@ -30,6 +36,7 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker.gugosf.workers.dev\"")
+            buildConfigField("String", "APP_SHARED_SECRET", "\"$appSharedSecret\"")
         }
     }
 

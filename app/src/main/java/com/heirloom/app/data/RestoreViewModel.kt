@@ -71,7 +71,10 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
                     cosineSimilarity = result.cosineSimilarity,
                     identityWarning = result.identityWarning,
                     wasColorized = result.wasColorized,
+                    identityUnverified = result.identityUnverified,
                 )
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                throw c
             } catch (t: Throwable) {
                 stageRotator?.cancel()
                 _state.value = RestoreState.Failed(source, t.message ?: "Unknown error")

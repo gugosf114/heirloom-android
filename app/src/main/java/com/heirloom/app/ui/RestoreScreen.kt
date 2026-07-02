@@ -125,6 +125,7 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         sourceUri = current.source.toString(),
                         restoredUrl = current.restoredUrl,
                         identityWarning = current.identityWarning,
+                        identityUnverified = current.identityUnverified,
                         wasColorized = current.wasColorized,
                         onSave = {
                             scope.launch {
@@ -315,6 +316,7 @@ private fun DoneBody(
     sourceUri: String,
     restoredUrl: String,
     identityWarning: Boolean,
+    identityUnverified: Boolean,
     wasColorized: Boolean,
     onSave: () -> Unit,
     onShare: () -> Unit,
@@ -326,6 +328,13 @@ private fun DoneBody(
     ) {
         if (identityWarning) {
             IdentityWarningBanner()
+            Spacer(Modifier.height(8.dp))
+        } else if (identityUnverified) {
+            Text(
+                text = stringResource(R.string.identity_unverified).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(8.dp))
         }
 

@@ -25,9 +25,10 @@ sealed interface RestoreState {
     data class Done(
         val source: Uri,
         val restoredUrl: String,
-        val cosineSimilarity: Double,
+        val cosineSimilarity: Double?,
         val identityWarning: Boolean,
         val wasColorized: Boolean,
+        val identityUnverified: Boolean,
     ) : RestoreState
     data class Failed(val source: Uri?, val message: String) : RestoreState
 }
