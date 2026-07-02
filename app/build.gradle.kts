@@ -24,12 +24,33 @@ android {
     // APP_SHARED_SECRET wrangler secret>. Empty = header not sent (dev/open).
     val appSharedSecret = (project.findProperty("HEIRLOOM_APP_KEY") as? String) ?: ""
 
+    // Play upload key — configured per-machine, never in the repo. In
+    // ~/.gradle/gradle.properties set:
+    //   HEIRLOOM_UPLOAD_STORE=<absolute path to .jks>
+    //   HEIRLOOM_UPLOAD_PASSWORD=<store+key password>
+    // Without these, release builds stay unsigned (CI just runs assembleDebug).
+    val uploadStore = project.findProperty("HEIRLOOM_UPLOAD_STORE") as? String
+    val uploadPassword = project.findProperty("HEIRLOOM_UPLOAD_PASSWORD") as? String
+    if (uploadStore != null && uploadPassword != null) {
+        signingConfigs {
+            create("upload") {
+                storeFile = file(uploadStore)
+                storePassword = uploadPassword
+                keyAlias = "upload"
+                keyPassword = uploadPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker-dev.gugosf.workers.dev\"")
             buildConfigField("String", "APP_SHARED_SECRET", "\"$appSharedSecret\"")
         }
         release {
+            if (uploadStore != null && uploadPassword != null) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

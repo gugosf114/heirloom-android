@@ -12,10 +12,10 @@ sealed interface Entitlement {
     /** Free in Armenia, no paywall ever, unlimited usage. */
     data object ArmeniaExempt : Entitlement
 
-    /** $4.99 one-time unlock active. Unlimited usage. */
+    /** One-time unlock active (price set in Play Console). Unlimited usage. */
     data object LifetimeUnlocked : Entitlement
 
-    /** $9.99/yr subscription active. Unlimited usage while active. */
+    /** Legacy: yearly subscription. Not offered in UI; honored if ever present. */
     data object YearlySubscriber : Entitlement
 
     /** No purchase, free-tier remaining. `remaining` decrements on each restore. */
@@ -31,4 +31,4 @@ object ProductIds {
     const val YEARLY = "heirloom_yearly_v1"
 }
 
-const val FREE_TIER_QUOTA = 3
+const val FREE_TIER_QUOTA = 1

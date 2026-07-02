@@ -123,6 +123,10 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
         }
     }
 
+    /** The one product the paywall sells. Null until Play has it (or offline). */
+    suspend fun lifetimeDetails(): ProductDetails? =
+        queryProductDetails().firstOrNull { it.productId == ProductIds.LIFETIME }
+
     fun launchPurchase(activity: Activity, details: ProductDetails) {
         val offerToken = details.subscriptionOfferDetails?.firstOrNull()?.offerToken
         val productParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
@@ -137,8 +141,15 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
         if (result.responseCode != BillingClient.BillingResponseCode.OK || purchases == null) return
-        purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED && !it.isAcknowledged }
-            .forEach(::acknowledge)
+        val purchased = purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
+        purchased.filter { !it.isAcknowledged }.forEach(::acknowledge)
+        // Flip entitlement immediately so the paywall dismisses without a manual refresh.
+        when {
+            purchased.any { it.products.contains(ProductIds.LIFETIME) } ->
+                _entitlement.value = Entitlement.LifetimeUnlocked
+            purchased.any { it.products.contains(ProductIds.YEARLY) } ->
+                _entitlement.value = Entitlement.YearlySubscriber
+        }
     }
 
     private fun acknowledge(purchase: Purchase) {

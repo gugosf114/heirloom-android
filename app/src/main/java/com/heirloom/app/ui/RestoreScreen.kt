@@ -38,7 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.android.billingclient.api.ProductDetails
+import com.heirloom.app.HeirloomApp
 import com.heirloom.app.R
+import com.heirloom.app.billing.Entitlement
 import com.heirloom.app.data.RestoreState
 import com.heirloom.app.data.RestoreViewModel
 import com.heirloom.app.data.Stage
@@ -53,6 +56,26 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val billing = (context.applicationContext as HeirloomApp).billing
+    val entitlement by billing.entitlement.collectAsStateWithLifecycle()
+    var showPaywall by remember { mutableStateOf(false) }
+    var lifetimeDetails by remember { mutableStateOf<ProductDetails?>(null) }
+
+    // Load the product lazily the first time the paywall opens.
+    LaunchedEffect(showPaywall) {
+        if (showPaywall && lifetimeDetails == null) {
+            lifetimeDetails = billing.lifetimeDetails()
+        }
+    }
+    // A completed purchase (or geo exemption) closes the paywall by itself.
+    LaunchedEffect(entitlement) {
+        if (showPaywall && entitlement !is Entitlement.PaywallRequired) showPaywall = false
+    }
+    // One free restoration is consumed only when a restore actually succeeds.
+    LaunchedEffect(state) {
+        if (state is RestoreState.Done) billing.consumeFreeRestoration()
+    }
 
     // 1. Configure the ML Kit Document Scanner
     val scannerOptions = GmsDocumentScannerOptions.Builder()
@@ -89,6 +112,14 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
         ) {
             HeirloomHeader()
 
+            (entitlement as? Entitlement.FreeTier)?.let { free ->
+                Text(
+                    text = stringResource(R.string.free_tier_remaining, free.remaining).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             AnimatedContent(
                 targetState = state,
                 modifier = Modifier
@@ -114,7 +145,10 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                     )
                     is RestoreState.Picked -> PickedBody(
                         sourceUri = current.source.toString(),
-                        onRestore = viewModel::startRestoration,
+                        onRestore = {
+                            if (entitlement is Entitlement.PaywallRequired) showPaywall = true
+                            else viewModel.startRestoration()
+                        },
                         onReset = viewModel::reset,
                     )
                     is RestoreState.Processing -> ProcessingBody(
@@ -151,6 +185,54 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
             }
         }
     }
+
+    if (showPaywall) {
+        PaywallDialog(
+            details = lifetimeDetails,
+            onBuy = { d -> activity?.let { billing.launchPurchase(it, d) } },
+            onDismiss = { showPaywall = false },
+        )
+    }
+}
+
+@Composable
+private fun PaywallDialog(
+    details: ProductDetails?,
+    onBuy: (ProductDetails) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val price = details?.oneTimePurchaseOfferDetails?.formattedPrice
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.paywall_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.paywall_body))
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.paywall_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            if (details != null && price != null) {
+                Button(onClick = { onBuy(details) }) {
+                    Text(stringResource(R.string.paywall_cta, price))
+                }
+            } else {
+                Text(
+                    stringResource(R.string.paywall_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.paywall_not_now)) }
+        },
+    )
 }
 
 @Composable
