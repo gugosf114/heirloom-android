@@ -61,6 +61,7 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         viewModelScope.launch {
+            val startedAt = System.currentTimeMillis()
             try {
                 // TODO: pass real Firebase ID token once auth is wired.
                 val result = RestoreApi.restore(getApplication(), source, idToken = null)
@@ -72,6 +73,7 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
                     identityWarning = result.identityWarning,
                     wasColorized = result.wasColorized,
                     identityUnverified = result.identityUnverified,
+                    elapsedSeconds = (System.currentTimeMillis() - startedAt) / 1_000,
                 )
             } catch (c: kotlinx.coroutines.CancellationException) {
                 throw c

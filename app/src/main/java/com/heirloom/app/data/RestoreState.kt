@@ -29,6 +29,7 @@ sealed interface RestoreState {
         val identityWarning: Boolean,
         val wasColorized: Boolean,
         val identityUnverified: Boolean,
+        val elapsedSeconds: Long? = null,
     ) : RestoreState
     data class Failed(val source: Uri?, val message: String) : RestoreState
 }
