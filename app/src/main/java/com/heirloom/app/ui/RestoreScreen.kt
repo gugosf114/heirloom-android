@@ -43,9 +43,11 @@ import com.heirloom.app.HeirloomApp
 import com.heirloom.app.R
 import com.heirloom.app.billing.Entitlement
 import com.heirloom.app.billing.allowsRestore
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.heirloom.app.data.RestoreState
 import com.heirloom.app.data.RestoreViewModel
-import com.heirloom.app.data.Stage
+import com.heirloom.app.ui.theater.RestorationTheater
 import kotlinx.coroutines.launch
 import android.app.Activity
 import android.content.Intent
@@ -159,7 +161,7 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         },
                         onReset = viewModel::reset,
                     )
-                    is RestoreState.Processing -> ProcessingBody(
+                    is RestoreState.Processing -> RestorationTheater(
                         sourceUri = current.source.toString(),
                         stage = current.stage,
                     )
@@ -169,6 +171,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         identityWarning = current.identityWarning,
                         identityUnverified = current.identityUnverified,
                         wasColorized = current.wasColorized,
+                        cosineSimilarity = current.cosineSimilarity,
+                        elapsedSeconds = current.elapsedSeconds,
                         onSave = {
                             scope.launch {
                                 runCatching { PhotoIo.saveToGallery(context, current.restoredUrl) }
@@ -362,63 +366,22 @@ private fun PickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> 
 }
 
 @Composable
-private fun ProcessingBody(sourceUri: String, stage: Stage) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = sourceUri,
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 8.dp),
-        )
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f))
-                .border(1.dp, MaterialTheme.colorScheme.outline)
-                .padding(24.dp),
-        ) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = stageLabel(stage).uppercase(),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-private fun stageLabel(stage: Stage): String = when (stage) {
-    Stage.Uploading -> stringResource(R.string.status_uploading)
-    Stage.RepairingDamage -> stringResource(R.string.status_repairing)
-    Stage.RestoringFaces -> stringResource(R.string.status_faces)
-    Stage.Upscaling -> stringResource(R.string.status_upscaling)
-    Stage.CheckingIdentity -> stringResource(R.string.status_checking)
-    Stage.Colorizing -> stringResource(R.string.status_colorizing)
-    Stage.Finalizing -> stringResource(R.string.status_finalizing)
-}
-
-@Composable
 private fun DoneBody(
     sourceUri: String,
     restoredUrl: String,
     identityWarning: Boolean,
     identityUnverified: Boolean,
     wasColorized: Boolean,
+    cosineSimilarity: Double?,
+    elapsedSeconds: Long?,
     onSave: () -> Unit,
     onShare: () -> Unit,
     onReset: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (identityWarning) {
@@ -449,6 +412,16 @@ private fun DoneBody(
                 accent = true,
             )
         }
+
+        Spacer(Modifier.height(12.dp))
+
+        RestorationReport(
+            cosineSimilarity = cosineSimilarity,
+            identityWarning = identityWarning,
+            identityUnverified = identityUnverified,
+            wasColorized = wasColorized,
+            elapsedSeconds = elapsedSeconds,
+        )
 
         Spacer(Modifier.height(16.dp))
 
