@@ -1,68 +1,20 @@
 name = "heirloom-worker"
 main = "src/index.ts"
-compatibility_date = "2024-12-15"
-compatibility_flags = ["nodejs_compat"]
-
-# Restoration runs are long (60-120s on cold starts). Workers' default
-# CPU limit is fine because we're mostly waiting on Replicate; subrequest
-# wait time doesn't count against CPU. The [limits] block is a paid-plan
-# feature; we run on free until traffic justifies the upgrade.
+compatibility_date = "2026-07-24"
 
 [vars]
-# Threshold below which we surface an identity-drift warning to the user.
-# AdaFace cosine similarity ranges roughly 0.0 (different person) to 1.0
-# (same person, same photo). 0.6 is the documented "same identity" floor
-# for AdaFace IR-101 trained on WebFace4M. Tune via wrangler secret put.
-IDENTITY_THRESHOLD = "0.6"
+PIPELINE_BASE_URL = "https://heirloom-pipeline-qfv7mm5hva-uc.a.run.app"
 
-# CodeFormer fidelity. 0 = max enhancement (might smooth features off),
-# 1 = max identity preservation. 0.7 is our deliberate "honest" default.
-CODEFORMER_FIDELITY = "0.7"
-
-# Saturation threshold for B&W detection. Mean color spread across sampled
-# pixels, normalized to [0,1]. Below this, we treat the input as monochrome
-# and run DDColor; above it, we skip colorization.
-GRAYSCALE_THRESHOLD = "0.05"
-
-# Replicate model versions, pinned to specific SHAs.
-# Verified active (modelStatus: online) on 2026-04-25 against
-# https://replicate.com/{owner}/{name}.
-
-# Microsoft Research port. Last published 2022-09-28 — stable but stale,
-# no maintenance for 3+ years. Status: online. Risk to track: if Microsoft
-# pulls the model, fallback options are gfpgan or codeformer alone.
-BOPB_VERSION = "c75db81db6cbd809d93cc3b7e7a088a351a3349c9fa02b6d393e35e0d51ba799"
-
-# CodeFormer by sczhou. Last published 2025-01-20. 52M+ runs.
-CODEFORMER_VERSION = "cc4956dd26fa5a7185d5660cc9100fab1b8070a1d1654a8bb5eb6d443b020bb2"
-
-# Real-ESRGAN by nightmareai. latest_version pin (page widget shows an
-# older "displayed" version, but latest is the canonical pin).
-ESRGAN_VERSION = "b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5ea8"
-
-# DDColor by piddnad. Last published 2024-01-12.
-DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa695"
-
-# AdaFace identity gate — self-hosted Cog deployment (see README session log).
-# This is a Replicate *deployment* ref, not a version SHA; the pipeline
-# routes deployment refs accordingly. If this deployment is paused/removed,
-# every restore will surface identity_warning=true via the error path — set
-# back to "PLACEHOLDER" to disable the gate gracefully instead.
-ADAFACE_VERSION = "gugosf114/heirloom-adaface"
-
-# Set REPLICATE_API_TOKEN via:
-#   npx wrangler secret put REPLICATE_API_TOKEN
+[[kv_namespaces]]
+binding = "REPORTS"
+id = "429f2b6425e0469ca0ea5d077672d5b7"
 
 [env.dev]
 name = "heirloom-worker-dev"
 
 [env.dev.vars]
-IDENTITY_THRESHOLD = "0.6"
-CODEFORMER_FIDELITY = "0.7"
-GRAYSCALE_THRESHOLD = "0.05"
-BOPB_VERSION = "c75db81db6cbd809d93cc3b7e7a088a351a3349c9fa02b6d393e35e0d51ba799"
-CODEFORMER_VERSION = "cc4956dd26fa5a7185d5660cc9100fab1b8070a1d1654a8bb5eb6d443b020bb2"
-ESRGAN_VERSION = "b3ef194191d13140337468c916c2c5b96dd0cb06dffc032a022a31807f6a5ea8"
-DDCOLOR_VERSION = "ca494ba129e44e45f661d6ece83c4c98a9a7c774309beca01429b58fce8aa695"
-ADAFACE_VERSION = "gugosf114/heirloom-adaface"
+PIPELINE_BASE_URL = "https://heirloom-pipeline-qfv7mm5hva-uc.a.run.app"
 
+[[env.dev.kv_namespaces]]
+binding = "REPORTS"
+id = "429f2b6425e0469ca0ea5d077672d5b7"

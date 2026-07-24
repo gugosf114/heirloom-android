@@ -25,6 +25,8 @@ const TEST_IMAGE_URL =
   'https://tile.loc.gov/storage-services/service/pnp/fsa/8b29000/8b29500/8b29516r.jpg';
 const TEST_UA =
   'HeirloomSmokeTest/0.1 (https://github.com/gugosf114/heirloom-android; gugosf@gmail.com)';
+const APP_SHARED_SECRET = process.env.APP_SHARED_SECRET;
+const PIPELINE_SHARED_SECRET = process.env.PIPELINE_SHARED_SECRET;
 
 interface StageEvent {
   kind: 'stage_start' | 'stage_done' | 'stage_skipped' | 'final' | 'error';
@@ -71,6 +73,10 @@ async function main(): Promise<void> {
   const reqStart = Date.now();
   const resp = await fetch(`${WORKER_URL}/restore-stream`, {
     method: 'POST',
+    headers: {
+      ...(APP_SHARED_SECRET ? { 'X-App-Key': APP_SHARED_SECRET } : {}),
+      ...(PIPELINE_SHARED_SECRET ? { 'X-Pipeline-Key': PIPELINE_SHARED_SECRET } : {}),
+    },
     body: form,
   });
   if (!resp.ok) {
@@ -134,7 +140,14 @@ function printEvent(e: StageEvent): void {
       break;
     case 'final':
       console.log(`[${t}] == final`);
-      console.log(`        ${JSON.stringify(e.result, null, 2).split('\n').join('\n        ')}`);
+      console.log(
+        `        ${JSON.stringify({
+          ...e.result,
+          restored_url: e.result?.restored_url?.startsWith('data:')
+            ? '<inline jpeg>'
+            : e.result?.restored_url,
+        })}`,
+      );
       break;
     case 'error':
       console.log(`[${t}] !! error: ${e.message}`);
@@ -173,10 +186,12 @@ async function assertPipelineHealth(events: StageEvent[]): Promise<void> {
         `AdaFace skipped but cosine_similarity=${result.cosine_similarity} (should be null)`,
       );
     }
-    if (result.identity_warning) {
-      throw new SmokeAssertion('AdaFace skipped but identity_warning=true (inconsistent)');
+    if (!result.identity_warning) {
+      throw new SmokeAssertion(
+        'AdaFace skipped without identity_warning=true (unsafe silent pass)',
+      );
     }
-    console.log('[smoke] AdaFace: skipped (no SHA pinned) — OK');
+    console.log('[smoke] AdaFace: unavailable and explicitly flagged — OK');
   } else {
     if (typeof result.cosine_similarity !== 'number') {
       throw new SmokeAssertion('AdaFace not skipped but cosine_similarity is not a number');
@@ -192,7 +207,11 @@ async function assertPipelineHealth(events: StageEvent[]): Promise<void> {
     console.warn('[smoke] WARN: input was expected to be B&W but was_colorized=false');
   }
 
-  if (!result.restored_url || !/^https?:\/\//.test(result.restored_url)) {
+  if (
+    !result.restored_url ||
+    !(/^(https?:\/\/)/.test(result.restored_url) ||
+      result.restored_url.startsWith('data:image/jpeg;base64,'))
+  ) {
     throw new SmokeAssertion(`Bad restored_url: ${result.restored_url}`);
   }
 }

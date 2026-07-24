@@ -1,113 +1,58 @@
-# Heirloom Worker
+# Heirloom edge gateway
 
-Cloudflare Worker that orchestrates the photo restoration pipeline on Replicate.
+The Cloudflare Worker is the authenticated public edge for Heirloom:
 
-## Setup
+```text
+Android app
+  -> Cloudflare Worker (app key, reports, streaming proxy)
+  -> Google Cloud Run (all restoration models, scale-to-zero L4)
+```
+
+No restoration photo is sent to Replicate. The Worker streams request and
+response bodies without storing them.
+
+## Routes
+
+- `GET /health` — checks the Cloud Run service.
+- `POST /restore` — authenticated buffered restoration proxy.
+- `POST /restore-stream` — authenticated NDJSON restoration proxy.
+- `POST /report` — stores a user-submitted result report without the photo.
+
+## Configuration
+
+`wrangler.toml` contains the non-secret Cloud Run URL and the `REPORTS` KV
+binding. Set these secrets separately for production and development:
 
 ```bash
-npm install
-npx wrangler login
-npx wrangler secret put REPLICATE_API_TOKEN
+npx wrangler secret put APP_SHARED_SECRET
+npx wrangler secret put PIPELINE_SHARED_SECRET
+npx wrangler secret put APP_SHARED_SECRET --env dev
+npx wrangler secret put PIPELINE_SHARED_SECRET --env dev
 ```
 
-## Pinned model versions
+`APP_SHARED_SECRET` must match the Android release build's
+`HEIRLOOM_APP_KEY`. `PIPELINE_SHARED_SECRET` is a separate server-to-server
+secret shared only with Cloud Run.
 
-Verified active on Replicate as of 2026-04-25 (`modelStatus: online`):
+Reports contain a reason, optional text, restoration metadata, and app version.
+They never contain the selected or restored photo and expire after 90 days.
 
-| Model | Slug | Last published |
-|---|---|---|
-| BOPB | `microsoft/bringing-old-photos-back-to-life` | 2022-09-28 (stale, monitor) |
-| CodeFormer | `sczhou/codeformer` | 2025-01-20 |
-| Real-ESRGAN | `nightmareai/real-esrgan` | latest_version pin |
-| DDColor | `piddnad/ddcolor` | 2024-01-12 |
-| AdaFace | **none active on Replicate** — placeholder pin disables the gate |
-
-The AdaFace gate is graceful-skip: if `ADAFACE_VERSION` doesn't match
-`/^[a-f0-9]{64}$/`, the pipeline returns `cosine_similarity: null,
-identity_warning: false, adaface_skipped: true`. Decide a substitute
-(self-hosted Cog, CLIP image-similarity, ImageBind, etc.) before
-launching to users who deserve the identity check.
-
-To override versions per environment:
+## Verify and deploy
 
 ```bash
-npx wrangler secret put BOPB_VERSION
-npx wrangler secret put CODEFORMER_VERSION
-npx wrangler secret put ESRGAN_VERSION
-npx wrangler secret put ADAFACE_VERSION
-npx wrangler secret put DDCOLOR_VERSION
+npm ci
+npm test
+npx tsc --noEmit
+npx wrangler whoami
+npx wrangler deploy
+npx wrangler deploy --env dev
 ```
 
-## Run locally
+## End-to-end smoke test
 
 ```bash
-npm run dev
+APP_SHARED_SECRET=... npm run smoke:remote
 ```
 
-Then the Android client points at `http://localhost:8787/restore` (set
-`WORKER_BASE_URL` in `app/build.gradle.kts`).
-
-## Deploy
-
-```bash
-npm run deploy           # production: heirloom-worker
-npm run deploy:dev       # dev: heirloom-worker-dev
-```
-
-## API
-
-### `POST /restore` — buffered single-response
-
-Multipart form with `image` field (JPEG, ≤5 MB).
-
-```json
-{
-  "restored_url": "https://replicate.delivery/.../output.jpg",
-  "cosine_similarity": 0.84,
-  "identity_warning": false,
-  "was_colorized": true,
-  "adaface_skipped": false
-}
-```
-
-When `identity_warning` is true, the client surfaces a warning banner. The
-restored URL is still returned — we don't gatekeep the result, we tell the
-truth about it.
-
-When `adaface_skipped` is true, `cosine_similarity` is `null` and the
-identity check did not run.
-
-### `POST /restore-stream` — NDJSON stage stream
-
-Same multipart input. Response is `application/x-ndjson` where each line
-is a `StageEvent`:
-
-```json
-{"kind":"stage_start","stage":"bopb","t_ms":12}
-{"kind":"stage_done","stage":"bopb","t_ms":15834,"output_url":"https://...","extra":{"duration_ms":15822}}
-{"kind":"stage_start","stage":"codeformer","t_ms":15835}
-{"kind":"stage_done","stage":"codeformer","t_ms":31402,"output_url":"https://...","extra":{"duration_ms":15567,"fidelity":0.7}}
-...
-{"kind":"final","t_ms":78211,"result":{"restored_url":"...","cosine_similarity":0.84,...}}
-```
-
-Used by `npm run smoke` for per-stage timing observability.
-
-## Smoke test
-
-```bash
-npm install                           # one time
-npx wrangler dev                      # in another terminal
-npx wrangler secret put REPLICATE_API_TOKEN     # local: writes to .dev.vars
-npm run smoke                         # downloads Migrant Mother, runs pipeline
-```
-
-Or against a deployed Worker:
-
-```bash
-npm run smoke:remote
-```
-
-The smoke test asserts the AdaFace gate fires correctly (either with a
-real cosine value, or `adaface_skipped: true`) and that B&W input gets
-colorized.
+The smoke test uses the public-domain *Migrant Mother* image and requires all
+five Cloud Run stages to reach a final inline JPEG with a real identity score.

@@ -23,10 +23,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
- * Wraps Google Play Billing Library v7. Stub-grade for v1: the public API
- * is stable but the implementation is intentionally minimal — real launch
- * needs server-side receipt validation, which lives in a separate Worker
- * route once we wire Firestore.
+ * Wraps Google Play Billing Library v9 for Heirloom's one-time unlock.
  *
  * Lifecycle:
  *   - construct in Application/Activity scope
@@ -45,6 +42,7 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
         .enablePendingPurchases(
             PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
         )
+        .enableAutoServiceReconnection()
         .build()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -91,8 +89,6 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
         when {
             active.any { it.products.contains(ProductIds.LIFETIME) } ->
                 _entitlement.value = Entitlement.LifetimeUnlocked
-            active.any { it.products.contains(ProductIds.YEARLY) } ->
-                _entitlement.value = Entitlement.YearlySubscriber
             else -> recomputeFreeTier()
         }
         active.filter { !it.isAcknowledged }.forEach(::acknowledge)
@@ -102,7 +98,6 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
     fun consumeFreeRestoration() {
         if (armeniaExempt) return
         if (_entitlement.value is Entitlement.LifetimeUnlocked) return
-        if (_entitlement.value is Entitlement.YearlySubscriber) return
         usage.increment()
         recomputeFreeTier()
     }
@@ -115,17 +110,13 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
                         .setProductId(ProductIds.LIFETIME)
                         .setProductType(BillingClient.ProductType.INAPP)
                         .build(),
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(ProductIds.YEARLY)
-                        .setProductType(BillingClient.ProductType.SUBS)
-                        .build(),
                 )
             )
             .build()
         return suspendCancellableCoroutine { cont ->
-            client.queryProductDetailsAsync(params) { result, list ->
+            client.queryProductDetailsAsync(params) { result, queryResult ->
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    cont.resume(list)
+                    cont.resume(queryResult.productDetailsList)
                 } else {
                     cont.resume(emptyList())
                 }
@@ -162,8 +153,6 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
         when {
             purchased.any { it.products.contains(ProductIds.LIFETIME) } ->
                 _entitlement.value = Entitlement.LifetimeUnlocked
-            purchased.any { it.products.contains(ProductIds.YEARLY) } ->
-                _entitlement.value = Entitlement.YearlySubscriber
         }
     }
 
@@ -175,9 +164,8 @@ class BillingManager(context: Context, private val usage: UsageTracker) :
     }
 
     private suspend fun activePurchases(): List<Purchase> {
-        val inapp = queryPurchases(BillingClient.ProductType.INAPP)
-        val subs = queryPurchases(BillingClient.ProductType.SUBS)
-        return (inapp + subs).filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
+        return queryPurchases(BillingClient.ProductType.INAPP)
+            .filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
     }
 
     private suspend fun queryPurchases(productType: String): List<Purchase> =

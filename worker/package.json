@@ -2,22 +2,21 @@
   "name": "heirloom-worker",
   "version": "0.1.0",
   "private": true,
-  "description": "Cloudflare Worker proxy that orchestrates the Heirloom restoration pipeline on Replicate.",
+  "description": "Authenticated Cloudflare gateway for Heirloom's self-hosted Cloud Run pipeline.",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:dev": "wrangler deploy --name heirloom-worker-dev",
     "tail": "wrangler tail",
     "smoke": "tsx test/smoke.ts",
-    "smoke:remote": "WORKER_URL=https://heirloom-worker.gugosf.workers.dev tsx test/smoke.ts"
+    "smoke:remote": "WORKER_URL=https://heirloom-worker.gugosf.workers.dev tsx test/smoke.ts",
+    "test": "node --import tsx --test test/unit.test.ts"
   },
-  "dependencies": {
-    "jpeg-js": "^0.4.4"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241218.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.3",
-    "wrangler": "^4.95.0"
+    "@cloudflare/workers-types": "^5.20260724.1",
+    "tsx": "^4.23.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.114.0"
   }
 }

@@ -7,7 +7,7 @@ on:
 
 jobs:
   worker:
-    name: Worker (typecheck)
+    name: Worker (test and typecheck)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -20,10 +20,11 @@ jobs:
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npx tsc --noEmit
 
   android:
-    name: Android (assembleDebug)
+    name: Android (test, lint, bundle)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,4 +33,15 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew assembleDebug --no-daemon
+      - run: ./gradlew testDebugUnitTest lintDebug bundleRelease --no-daemon
+
+  pipeline:
+    name: Pipeline (syntax)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m compileall -q pipeline/app
+      - run: python -m unittest discover -s pipeline/tests

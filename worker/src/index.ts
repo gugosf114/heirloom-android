@@ -1,354 +1,192 @@
 /**
- * Heirloom restoration pipeline orchestrator.
+ * Heirloom edge gateway.
  *
- * Two endpoints, same pipeline:
- *   POST /restore         multipart { image }  -> single JSON when done
- *   POST /restore-stream  multipart { image }  -> NDJSON stream of stage events
- *
- * /restore is what the Android app calls in v1. /restore-stream is for
- * smoke tests and (later) a richer client progress UI.
- *
- * Pipeline (mirrors README.md):
- *   1. Bringing-Old-Photos-Back-to-Life  (with_scratch=true)
- *   2. CodeFormer (fidelity 0.7)
- *   3. Real-ESRGAN (scale=2)
- *   4. AdaFace cosine sim (input vs Real-ESRGAN output) -- gracefully
- *      skipped if no AdaFace SHA is pinned
- *   5. DDColor (model_size=large) -- only when input is detected B&W
- *
- * AdaFace below threshold returns the result with identity_warning=true.
- * Silent pass is the worst outcome — users need to know.
+ * Android -> this Worker -> the fully self-hosted Cloud Run GPU pipeline.
+ * The Worker owns app authentication, report intake, and response streaming.
+ * It does not run restoration models and it never sends photos to Replicate.
  */
 
-import { runReplicate, asUrl, asSimilarity, ReplicateConfig } from './replicate';
-import { isGrayscale } from './saturation';
-
-interface Env {
-  REPLICATE_API_TOKEN: string;
-  /** Optional shared secret. When set (wrangler secret put APP_SHARED_SECRET),
-   *  requests must carry a matching X-App-Key header. Unset = open (dev). */
+export interface Env {
   APP_SHARED_SECRET?: string;
-  IDENTITY_THRESHOLD: string;
-  CODEFORMER_FIDELITY: string;
-  GRAYSCALE_THRESHOLD: string;
-  BOPB_VERSION: string;
-  CODEFORMER_VERSION: string;
-  ESRGAN_VERSION: string;
-  ADAFACE_VERSION: string;
-  DDCOLOR_VERSION: string;
+  PIPELINE_BASE_URL: string;
+  PIPELINE_SHARED_SECRET?: string;
+  REPORTS: KVNamespace;
 }
 
-interface PipelineResult {
-  restored_url: string;
-  cosine_similarity: number | null;
-  identity_warning: boolean;
-  was_colorized: boolean;
-  adaface_skipped: boolean;
+interface ReportPayload {
+  reason?: unknown;
+  details?: unknown;
+  cosine_similarity?: unknown;
+  identity_warning?: unknown;
+  identity_unverified?: unknown;
+  was_colorized?: unknown;
+  app_version?: unknown;
 }
 
-type StageEvent =
-  | { kind: 'stage_start'; stage: string; t_ms: number }
-  | { kind: 'stage_done'; stage: string; t_ms: number; output_url?: string; extra?: Record<string, unknown> }
-  | { kind: 'stage_skipped'; stage: string; t_ms: number; reason: string }
-  | { kind: 'final'; t_ms: number; result: PipelineResult }
-  | { kind: 'error'; t_ms: number; message: string };
+const REPORT_REASONS = new Set([
+  'wrong_person',
+  'distorted_face',
+  'offensive_or_unexpected',
+  'poor_quality',
+  'other',
+]);
+const REPORT_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/health' && request.method === 'GET') {
-      return jsonResponse({ ok: true });
+    if (request.method === 'GET' && url.pathname === '/health') {
+      return pipelineHealth(env);
     }
 
     if (request.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      return jsonResponse({ error: 'not found' }, 404);
     }
-
-    if (env.APP_SHARED_SECRET && request.headers.get('X-App-Key') !== env.APP_SHARED_SECRET) {
+    if (!appIsAuthorized(request, env)) {
       return jsonResponse({ error: 'unauthorized' }, 401);
     }
 
-    if (url.pathname !== '/restore' && url.pathname !== '/restore-stream') {
-      return new Response('Not found', { status: 404 });
+    if (url.pathname === '/restore' || url.pathname === '/restore-stream') {
+      return proxyRestoration(request, url, env);
     }
-
-    if (!env.REPLICATE_API_TOKEN) {
-      return jsonResponse({ error: 'Worker missing REPLICATE_API_TOKEN' }, 500);
+    if (url.pathname === '/report') {
+      return receiveReport(request, env);
     }
-
-    let bytes: Uint8Array;
-    try {
-      const formData = await request.formData();
-      const image = formData.get('image') as unknown;
-      if (!(image instanceof Blob)) {
-        return jsonResponse({ error: 'image field is required' }, 400);
-      }
-      bytes = new Uint8Array(await image.arrayBuffer());
-      if (bytes.byteLength === 0) {
-        return jsonResponse({ error: 'image is empty' }, 400);
-      }
-      if (bytes.byteLength > 5 * 1024 * 1024) {
-        return jsonResponse({ error: 'image too large; max 5MB for v1' }, 413);
-      }
-    } catch (err) {
-      return jsonResponse({ error: err instanceof Error ? err.message : 'invalid form' }, 400);
-    }
-
-    if (url.pathname === '/restore-stream') {
-      return runStreamingPipeline(bytes, env);
-    }
-    return runBufferedPipeline(bytes, env);
+    return jsonResponse({ error: 'not found' }, 404);
   },
 };
 
-async function runBufferedPipeline(bytes: Uint8Array, env: Env): Promise<Response> {
+async function pipelineHealth(env: Env): Promise<Response> {
   try {
-    let result: PipelineResult | null = null;
-    for await (const event of pipelineEvents(bytes, env)) {
-      if (event.kind === 'final') result = event.result;
-      if (event.kind === 'error') {
-        return jsonResponse({ error: event.message }, 500);
-      }
-    }
-    if (!result) return jsonResponse({ error: 'pipeline produced no result' }, 500);
-    return jsonResponse(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    return jsonResponse({ error: message }, 500);
+    const upstream = await fetch(new URL('/health', normalizedPipelineBase(env)));
+    return jsonResponse(
+      {
+        ok: upstream.ok,
+        backend: 'cloud-run',
+      },
+      upstream.ok ? 200 : 503,
+    );
+  } catch {
+    return jsonResponse({ ok: false, backend: 'cloud-run' }, 503);
   }
 }
 
-function runStreamingPipeline(bytes: Uint8Array, env: Env): Response {
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
-
-  (async () => {
-    try {
-      for await (const event of pipelineEvents(bytes, env)) {
-        await writer.write(encoder.encode(JSON.stringify(event) + '\n'));
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      const event: StageEvent = { kind: 'error', t_ms: 0, message };
-      await writer.write(encoder.encode(JSON.stringify(event) + '\n'));
-    } finally {
-      await writer.close();
-    }
-  })();
-
-  return new Response(readable, {
-    headers: {
-      'Content-Type': 'application/x-ndjson',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  });
-}
-
-async function* pipelineEvents(bytes: Uint8Array, env: Env): AsyncGenerator<StageEvent> {
-  const start = Date.now();
-  const elapsed = () => Date.now() - start;
-  const replicate: ReplicateConfig = { token: env.REPLICATE_API_TOKEN };
-  const inputDataUrl = bytesToDataUrl(bytes, 'image/jpeg');
-
-  // NEW STAGE: Auto-Level & Fade Removal (Pre-processing)
-  // Currently mocked. In v2, this will run a fast OpenCV or ImageMagick/Sharp pass 
-  // to normalize the histogram before feeding to CodeFormer, removing yellow casts.
-  yield { kind: 'stage_start', stage: 'auto_level', t_ms: elapsed() };
-  yield {
-    kind: 'stage_done',
-    stage: 'auto_level',
-    t_ms: elapsed(),
-    extra: { note: 'Delegated to v2 worker pre-processing.' },
-  };
-
-  // Stage 1: BOPB
-  yield { kind: 'stage_start', stage: 'bopb', t_ms: elapsed() };
-  const bopbStart = Date.now();
-  const bopbOut = await runReplicate(replicate, env.BOPB_VERSION, {
-    image: inputDataUrl,
-    with_scratch: true,
-    HR: false,
-  });
-  const bopbUrl = asUrl(bopbOut);
-  yield {
-    kind: 'stage_done',
-    stage: 'bopb',
-    t_ms: elapsed(),
-    output_url: bopbUrl,
-    extra: { duration_ms: Date.now() - bopbStart },
-  };
-
-  // Stage 2: CodeFormer
-  yield { kind: 'stage_start', stage: 'codeformer', t_ms: elapsed() };
-  const cfStart = Date.now();
-  const fidelity = parseFloat(env.CODEFORMER_FIDELITY) || 0.7;
-  const codeformerOut = await runReplicate(replicate, env.CODEFORMER_VERSION, {
-    image: bopbUrl,
-    codeformer_fidelity: fidelity,
-    background_enhance: true,
-    face_upsample: true,
-    upscale: 2,
-  });
-  const codeformerUrl = asUrl(codeformerOut);
-  yield {
-    kind: 'stage_done',
-    stage: 'codeformer',
-    t_ms: elapsed(),
-    output_url: codeformerUrl,
-    extra: { duration_ms: Date.now() - cfStart, fidelity },
-  };
-
-  // Stage 3: Real-ESRGAN
-  yield { kind: 'stage_start', stage: 'esrgan', t_ms: elapsed() };
-  const esrStart = Date.now();
-  const esrganOut = await runReplicate(replicate, env.ESRGAN_VERSION, {
-    image: codeformerUrl,
-    scale: 2,
-    face_enhance: false,
-  });
-  const restoredUrl = asUrl(esrganOut);
-  yield {
-    kind: 'stage_done',
-    stage: 'esrgan',
-    t_ms: elapsed(),
-    output_url: restoredUrl,
-    extra: { duration_ms: Date.now() - esrStart },
-  };
-
-  // Stage 4: AdaFace gate
-  const adafacePinned =
-    env.ADAFACE_VERSION &&
-    !env.ADAFACE_VERSION.startsWith('PLACEHOLDER');
-  const threshold = parseFloat(env.IDENTITY_THRESHOLD) || 0.6;
-  let cosineSimilarity: number | null = null;
-  let identityWarning = false;
-  let adafaceSkipped = false;
-
-  if (!adafacePinned) {
-    adafaceSkipped = true;
-    yield {
-      kind: 'stage_skipped',
-      stage: 'adaface',
-      t_ms: elapsed(),
-      reason: 'No AdaFace SHA pinned. Identity gate disabled — caller should treat result as unverified.',
-    };
-  } else {
-    yield { kind: 'stage_start', stage: 'adaface', t_ms: elapsed() };
-    const afStart = Date.now();
-    try {
-      const adafaceOut = await runReplicate(replicate, env.ADAFACE_VERSION, {
-        image1: inputDataUrl,
-        image2: restoredUrl,
-      });
-      cosineSimilarity = asSimilarity(adafaceOut);
-      identityWarning = cosineSimilarity < threshold;
-      yield {
-        kind: 'stage_done',
-        stage: 'adaface',
-        t_ms: elapsed(),
-        extra: {
-          duration_ms: Date.now() - afStart,
-          cosine_similarity: cosineSimilarity,
-          threshold,
-          identity_warning: identityWarning,
-        },
-      };
-    } catch (err) {
-      cosineSimilarity = 0.0;
-      identityWarning = true;
-      yield {
-        kind: 'stage_done',
-        stage: 'adaface',
-        t_ms: elapsed(),
-        extra: {
-          duration_ms: Date.now() - afStart,
-          error: err instanceof Error ? err.message : 'unknown',
-          identity_warning: true,
-        },
-      };
-    }
+async function proxyRestoration(
+  request: Request,
+  requestUrl: URL,
+  env: Env,
+): Promise<Response> {
+  const upstreamUrl = new URL(requestUrl.pathname + requestUrl.search, normalizedPipelineBase(env));
+  const headers = new Headers();
+  const contentType = request.headers.get('content-type');
+  if (contentType) headers.set('content-type', contentType);
+  if (env.PIPELINE_SHARED_SECRET) {
+    headers.set('x-pipeline-key', env.PIPELINE_SHARED_SECRET);
   }
 
-  // Stage 5: DDColor (B&W only)
-  yield { kind: 'stage_start', stage: 'colorize_check', t_ms: elapsed() };
-  const grayscaleThreshold = parseFloat(env.GRAYSCALE_THRESHOLD) || 0.05;
-  const inputIsGrayscale = isGrayscale(bytes, grayscaleThreshold);
-  yield {
-    kind: 'stage_done',
-    stage: 'colorize_check',
-    t_ms: elapsed(),
-    extra: { is_grayscale: inputIsGrayscale, threshold: grayscaleThreshold },
-  };
-
-  let finalUrl = restoredUrl;
-  let wasColorized = false;
-  if (inputIsGrayscale) {
-    yield { kind: 'stage_start', stage: 'ddcolor', t_ms: elapsed() };
-    const ddStart = Date.now();
-    const ddcolorOut = await runReplicate(replicate, env.DDCOLOR_VERSION, {
-      image: restoredUrl,
-      model_size: 'large',
+  try {
+    const upstream = await fetch(upstreamUrl, {
+      method: 'POST',
+      headers,
+      body: request.body,
+      redirect: 'manual',
     });
-    finalUrl = asUrl(ddcolorOut);
-    wasColorized = true;
-    yield {
-      kind: 'stage_done',
-      stage: 'ddcolor',
-      t_ms: elapsed(),
-      output_url: finalUrl,
-      extra: { duration_ms: Date.now() - ddStart },
-    };
-  } else {
-    yield {
-      kind: 'stage_skipped',
-      stage: 'ddcolor',
-      t_ms: elapsed(),
-      reason: 'Input is color; colorization skipped.',
-    };
+    const responseHeaders = new Headers(upstream.headers);
+    responseHeaders.set('cache-control', 'no-store');
+    responseHeaders.set('x-content-type-options', 'nosniff');
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
+    });
+  } catch {
+    return jsonResponse({ error: 'restoration service unavailable' }, 503);
   }
-  
-  // NEW STAGE: Film Grain Synthesis
-  // Currently mocked. In v2, this will run a fast WebGL/WASM noise overlay 
-  // or a Replicate film-emulation model. For now, we yield the stage event
-  // so the Android app knows to apply local synthetic grain.
-  yield { kind: 'stage_start', stage: 'grain_synthesis', t_ms: elapsed() };
-  yield {
-    kind: 'stage_done',
-    stage: 'grain_synthesis',
-    t_ms: elapsed(),
-    extra: { note: 'Delegated to Android client RenderEffect for v1.' },
-  };
-
-  yield {
-    kind: 'final',
-    t_ms: elapsed(),
-    result: {
-      restored_url: finalUrl,
-      cosine_similarity: cosineSimilarity,
-      identity_warning: identityWarning,
-      was_colorized: wasColorized,
-      adaface_skipped: adafaceSkipped,
-    },
-  };
 }
 
-function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
-  // Chunked fromCharCode — the old per-byte string concat burned enough
-  // Worker CPU on 5MB images to risk hitting the CPU limit.
-  const chunk = 0x8000;
-  const parts: string[] = [];
-  for (let i = 0; i < bytes.length; i += chunk) {
-    parts.push(String.fromCharCode(...bytes.subarray(i, i + chunk)));
+async function receiveReport(request: Request, env: Env): Promise<Response> {
+  let raw: ReportPayload;
+  try {
+    raw = await request.json<ReportPayload>();
+  } catch {
+    return jsonResponse({ error: 'invalid report' }, 400);
   }
-  return `data:${mime};base64,${btoa(parts.join(''))}`;
+
+  const validated = validateReportPayload(raw);
+  if (!validated.ok) {
+    return jsonResponse({ error: validated.error }, 400);
+  }
+
+  const createdAt = new Date().toISOString();
+  const key = `report:${createdAt}:${crypto.randomUUID()}`;
+  await env.REPORTS.put(
+    key,
+    JSON.stringify({
+      created_at: createdAt,
+      ...validated.value,
+    }),
+    { expirationTtl: REPORT_TTL_SECONDS },
+  );
+  return jsonResponse({ accepted: true }, 202);
+}
+
+function appIsAuthorized(request: Request, env: Env): boolean {
+  if (!env.APP_SHARED_SECRET) return true;
+  return secureEqual(request.headers.get('x-app-key') ?? '', env.APP_SHARED_SECRET);
+}
+
+function normalizedPipelineBase(env: Env): URL {
+  const value = env.PIPELINE_BASE_URL.trim();
+  if (!value) throw new Error('PIPELINE_BASE_URL is not configured');
+  return new URL(value.endsWith('/') ? value : `${value}/`);
+}
+
+export function secureEqual(left: string, right: string): boolean {
+  const max = Math.max(left.length, right.length);
+  let difference = left.length ^ right.length;
+  for (let i = 0; i < max; i++) {
+    difference |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
+  }
+  return difference === 0;
+}
+
+export function validateReportPayload(
+  payload: ReportPayload,
+):
+  | { ok: true; value: Record<string, string | number | boolean | null> }
+  | { ok: false; error: string } {
+  if (typeof payload.reason !== 'string' || !REPORT_REASONS.has(payload.reason)) {
+    return { ok: false, error: 'invalid reason' };
+  }
+  const details = typeof payload.details === 'string' ? payload.details.trim() : '';
+  if (details.length > 1000) {
+    return { ok: false, error: 'details too long' };
+  }
+
+  return {
+    ok: true,
+    value: {
+      reason: payload.reason,
+      details,
+      cosine_similarity:
+        typeof payload.cosine_similarity === 'number' ? payload.cosine_similarity : null,
+      identity_warning: payload.identity_warning === true,
+      identity_unverified: payload.identity_unverified === true,
+      was_colorized: payload.was_colorized === true,
+      app_version:
+        typeof payload.app_version === 'string' ? payload.app_version.slice(0, 40) : '',
+    },
+  };
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
   });
 }

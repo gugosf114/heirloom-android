@@ -31,4 +31,19 @@
     <string name="paywall_subtitle">No watermarks. No ads. No subscription tricks.</string>
     <string name="free_tier_remaining">%1$d free restoration left</string>
     <string name="armenia_free">Free in Armenia. Always.</string>
+
+    <string name="report_problem">Report a problem</string>
+    <string name="report_title">Report this result</string>
+    <string name="report_privacy">Choose what went wrong. The photo itself is never included in your report.</string>
+    <string name="report_reason_wrong_person">The person looks different</string>
+    <string name="report_reason_distorted_face">A face looks distorted</string>
+    <string name="report_reason_unexpected">Offensive or unexpected content</string>
+    <string name="report_reason_poor_quality">Poor restoration quality</string>
+    <string name="report_reason_other">Something else</string>
+    <string name="report_details">Optional details</string>
+    <string name="report_submit">Send report</string>
+    <string name="report_sending">Sending…</string>
+    <string name="report_cancel">Cancel</string>
+    <string name="report_thanks">Thanks. Your report was sent.</string>
+    <string name="report_failed">The report could not be sent. Please try again.</string>
 </resources>
