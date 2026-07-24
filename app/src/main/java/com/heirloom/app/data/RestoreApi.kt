@@ -12,6 +12,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
@@ -42,11 +43,7 @@ class RestoreHttpException(val statusCode: Int) : IOException("restore failed: $
 class PipelineReportedException : IOException("pipeline reported a failure")
 
 object RestoreApi {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(620, TimeUnit.SECONDS)
-        .writeTimeout(90, TimeUnit.SECONDS)
-        .build()
+    private val client = buildRestoreHttpClient()
 
     private const val DATA_URL_PREFIX = "data:image/jpeg;base64,"
 
@@ -196,3 +193,16 @@ object RestoreApi {
         return out.toByteArray()
     }
 }
+
+internal fun buildRestoreHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    // Cloudflare's long-lived HTTP/2 stream was reset on the real Android
+    // device even though the Cloud Run job completed successfully. The same
+    // production route is stable over HTTP/1.1.
+    .protocols(listOf(Protocol.HTTP_1_1))
+    // A restoration POST is expensive and not idempotent. OkHttp's default
+    // connection retry replayed the same photo several times after a reset.
+    .retryOnConnectionFailure(false)
+    .connectTimeout(30, TimeUnit.SECONDS)
+    .readTimeout(620, TimeUnit.SECONDS)
+    .writeTimeout(90, TimeUnit.SECONDS)
+    .build()
