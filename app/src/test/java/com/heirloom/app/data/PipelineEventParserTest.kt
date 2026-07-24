@@ -7,6 +7,18 @@ import org.junit.Test
 
 class PipelineEventParserTest {
     @Test
+    fun largeButCompressedPhonePhotoIsTranscoded() {
+        assertTrue(needsUploadTranscode(width = 6_000, height = 4_000, byteCount = 700_000))
+        assertEquals(4, uploadDecodeSampleSize(width = 6_000, height = 4_000))
+    }
+
+    @Test
+    fun boundedPhotoCanUploadWithoutReencoding() {
+        assertFalse(needsUploadTranscode(width = 1_024, height = 768, byteCount = 700_000))
+        assertEquals(1, uploadDecodeSampleSize(width = 1_024, height = 768))
+    }
+
+    @Test
     fun mapsRealBackendStages() {
         assertEquals(
             PipelineEvent.StageStarted(Stage.RepairingDamage),

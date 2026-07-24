@@ -22,6 +22,9 @@ def _upsampler():
             scale=2,
             model_path=weights,
             model=model,
+            tile=int(os.getenv("ESRGAN_TILE", "400")),
+            tile_pad=10,
+            pre_pad=0,
             half=cuda,
             device="cuda" if cuda else "cpu",
         )

@@ -18,6 +18,7 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import kotlin.math.roundToInt
 import java.util.concurrent.TimeUnit
 
 data class RestoreResult(
@@ -47,8 +48,6 @@ object RestoreApi {
         .writeTimeout(90, TimeUnit.SECONDS)
         .build()
 
-    private const val MAX_DIMENSION = 2048
-    private const val MAX_UPLOAD_BYTES = 4 * 1024 * 1024
     private const val DATA_URL_PREFIX = "data:image/jpeg;base64,"
 
     suspend fun restore(
@@ -58,7 +57,18 @@ object RestoreApi {
     ): RestoreResult = withContext(Dispatchers.IO) {
         val raw = context.contentResolver.openInputStream(source)?.use { it.readBytes() }
             ?: error("Could not read selected image")
-        val bytes = if (raw.size > MAX_UPLOAD_BYTES) downscaleToJpeg(raw) else raw
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            error("Could not decode selected image")
+        }
+        val bytes = if (
+            needsUploadTranscode(bounds.outWidth, bounds.outHeight, raw.size)
+        ) {
+            downscaleToJpeg(raw, bounds.outWidth, bounds.outHeight)
+        } else {
+            raw
+        }
         if (bytes.size > MAX_UPLOAD_BYTES) error("Selected image is too large")
 
         val body = MultipartBody.Builder()
@@ -156,19 +166,24 @@ object RestoreApi {
         return Uri.fromFile(file).toString()
     }
 
-    private fun downscaleToJpeg(raw: ByteArray): ByteArray {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
-        var sample = 1
-        while (
-            bounds.outWidth / (sample * 2) >= MAX_DIMENSION ||
-            bounds.outHeight / (sample * 2) >= MAX_DIMENSION
-        ) {
-            sample *= 2
+    private fun downscaleToJpeg(raw: ByteArray, width: Int, height: Int): ByteArray {
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = uploadDecodeSampleSize(width, height)
         }
-        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-        val bitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size, opts)
+        val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size, opts)
             ?: error("Could not decode selected image")
+        val largest = maxOf(decoded.width, decoded.height)
+        val bitmap = if (largest > MAX_UPLOAD_DIMENSION) {
+            val scale = MAX_UPLOAD_DIMENSION.toFloat() / largest
+            Bitmap.createScaledBitmap(
+                decoded,
+                (decoded.width * scale).roundToInt().coerceAtLeast(1),
+                (decoded.height * scale).roundToInt().coerceAtLeast(1),
+                true,
+            ).also { decoded.recycle() }
+        } else {
+            decoded
+        }
         val out = ByteArrayOutputStream()
         var quality = 92
         bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)

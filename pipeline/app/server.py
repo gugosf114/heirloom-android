@@ -28,7 +28,7 @@ import time
 from typing import Any, Dict, Generator, Optional
 
 import cv2
-from PIL import Image
+from PIL import Image, ImageOps
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -37,6 +37,8 @@ from .grayscale import is_grayscale
 from .stages import bopb, codeformer, ddcolor, esrgan
 
 MAX_BYTES = 5 * 1024 * 1024
+MAX_INPUT_DIMENSION = int(os.getenv("MAX_INPUT_DIMENSION", "1024"))
+MAX_INPUT_PIXELS = int(os.getenv("MAX_INPUT_PIXELS", "50000000"))
 app = FastAPI(title="heirloom-pipeline")
 
 
@@ -70,6 +72,19 @@ def _data_url(jpeg_bytes: bytes) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(jpeg_bytes).decode("ascii")
 
 
+def _normalize_input(image_bytes: bytes, output_path: str) -> None:
+    with Image.open(io.BytesIO(image_bytes)) as source:
+        width, height = source.size
+        if width <= 0 or height <= 0 or width * height > MAX_INPUT_PIXELS:
+            raise ValueError("image dimensions are unsupported")
+        image = ImageOps.exif_transpose(source).convert("RGB")
+        image.thumbnail(
+            (MAX_INPUT_DIMENSION, MAX_INPUT_DIMENSION),
+            Image.Resampling.LANCZOS,
+        )
+        image.save(output_path, format="JPEG", quality=95)
+
+
 def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any], None, None]:
     start = time.monotonic()
     def t() -> int:
@@ -82,8 +97,9 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     in_dir = os.path.join(workdir, "in")
     os.makedirs(in_dir, exist_ok=True)
     orig_path = os.path.join(in_dir, "orig.jpg")
-    with open(orig_path, "wb") as f:
-        f.write(image_bytes)
+    _normalize_input(image_bytes, orig_path)
+    with open(orig_path, "rb") as normalized_file:
+        normalized_input = normalized_file.read()
 
     # Working image flows through each stage. A stage failure is logged in its
     # event and the previous image passes through — best-effort, a single bad
@@ -155,7 +171,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
 
     # Stage 5: DDColor (B&W input only).
     yield {"kind": "stage_start", "stage": "colorize_check", "t_ms": t()}
-    input_is_gray = is_grayscale(image_bytes, gray_threshold)
+    input_is_gray = is_grayscale(normalized_input, gray_threshold)
     yield {"kind": "stage_done", "stage": "colorize_check", "t_ms": t(),
            "extra": {"is_grayscale": input_is_gray, "threshold": gray_threshold}}
 
