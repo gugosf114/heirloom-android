@@ -10,6 +10,8 @@
 local.properties
 /app/build
 .kotlin/
+__pycache__/
+*.py[cod]
 
 # Worker
 worker/node_modules/
@@ -21,6 +23,7 @@ worker/dist/
 *.keystore
 keystore.properties
 google-services.json
+*.jks
 
 # Claude Code worktrees
 .claude/worktrees/

@@ -15,9 +15,6 @@ sealed interface Entitlement {
     /** One-time unlock active (price set in Play Console). Unlimited usage. */
     data object LifetimeUnlocked : Entitlement
 
-    /** Legacy: yearly subscription. Not offered in UI; honored if ever present. */
-    data object YearlySubscriber : Entitlement
-
     /** No purchase, free-tier remaining. `remaining` decrements on each restore. */
     data class FreeTier(val remaining: Int) : Entitlement
 
@@ -33,8 +30,7 @@ sealed interface Entitlement {
  */
 fun Entitlement.allowsRestore(): Boolean = when (this) {
     Entitlement.ArmeniaExempt,
-    Entitlement.LifetimeUnlocked,
-    Entitlement.YearlySubscriber -> true
+    Entitlement.LifetimeUnlocked -> true
     is Entitlement.FreeTier -> remaining > 0
     Entitlement.PaywallRequired -> false
 }
@@ -42,7 +38,6 @@ fun Entitlement.allowsRestore(): Boolean = when (this) {
 /** Product IDs. Wire to actual SKU IDs in Play Console before launch. */
 object ProductIds {
     const val LIFETIME = "heirloom_lifetime_unlock_v1"
-    const val YEARLY = "heirloom_yearly_v1"
 }
 
 const val FREE_TIER_QUOTA = 1

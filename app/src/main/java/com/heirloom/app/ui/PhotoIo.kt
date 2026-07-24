@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 
 /**
@@ -32,16 +33,30 @@ object PhotoIo {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    suspend fun download(url: String): ByteArray = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url(url).build()
-        client.newCall(req).execute().use { res ->
-            if (!res.isSuccessful) error("Download failed: ${res.code}")
-            res.body?.bytes() ?: error("Empty body")
+    suspend fun readBytes(context: Context, source: String): ByteArray = withContext(Dispatchers.IO) {
+        val uri = Uri.parse(source)
+        when (uri.scheme?.lowercase()) {
+            "file" -> File(requireNotNull(uri.path) { "Invalid file URI" }).readBytes()
+            "content" -> context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: error("Could not read restored photo")
+            "data" -> {
+                val encoded = source.substringAfter(',', missingDelimiterValue = "")
+                require(encoded.isNotEmpty()) { "Invalid image data" }
+                Base64.getDecoder().decode(encoded)
+            }
+            "http", "https" -> {
+                val req = Request.Builder().url(source).build()
+                client.newCall(req).execute().use { res ->
+                    if (!res.isSuccessful) error("Download failed: ${res.code}")
+                    res.body?.bytes() ?: error("Empty body")
+                }
+            }
+            else -> error("Unsupported restored photo location")
         }
     }
 
     suspend fun saveToGallery(context: Context, url: String): Uri = withContext(Dispatchers.IO) {
-        val bytes = download(url)
+        val bytes = readBytes(context, url)
         val name = "heirloom_${System.currentTimeMillis()}.jpg"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -76,7 +91,7 @@ object PhotoIo {
     }
 
     suspend fun share(context: Context, url: String) = withContext(Dispatchers.IO) {
-        val bytes = download(url)
+        val bytes = readBytes(context, url)
         val cacheDir = File(context.cacheDir, "restored").apply { mkdirs() }
         val file = File(cacheDir, "heirloom_${System.currentTimeMillis()}.jpg")
         file.writeBytes(bytes)

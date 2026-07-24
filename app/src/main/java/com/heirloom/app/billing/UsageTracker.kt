@@ -3,11 +3,9 @@ package com.heirloom.app.billing
 import android.content.Context
 
 /**
- * Local free-tier counter. v1 only.
- *
- * KNOWN GAP: anyone who clears app data resets their counter. Before launch,
- * the canonical counter must move to Firestore keyed by Firebase UID. Local
- * value becomes a cache only.
+ * Local, account-free free-tier counter. Clearing all App data also clears
+ * this counter; that privacy-friendly tradeoff avoids creating a persistent
+ * user or device identifier solely to enforce one promotional restoration.
  */
 class UsageTracker(context: Context) {
     private val prefs = context.getSharedPreferences("usage", Context.MODE_PRIVATE)

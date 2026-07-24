@@ -1,84 +1,96 @@
 # Play Store launch kit — Heirloom
 
-Code side is done: 1 free restoration → one-time unlock (price is set in
-Play Console, the app displays whatever you pick), Armenia rides free,
-no ads, no subscriptions. Below is George's checklist + listing material.
-
-## George's checklist (in order)
-
-1. **Play Console → Create app**: "Heirloom — Photo Restoration", App,
-   Paid features via in-app purchase (the app itself is Free).
-2. **Monetize → In-app products → Create product**:
-   - Product ID: `heirloom_lifetime_unlock_v1` (must match exactly)
-   - Name: "Unlock forever" — Description: "Unlimited photo restorations."
-   - **Price: your call — $0.99 or $1.99.** (Cost basis: ~$7/mo fixed +
-     roughly $0.10–0.20 of model time per restore on Replicate. At $0.99
-     Google keeps 15%, so ~84¢ net = ~4–8 restores of margin per buyer.
-     $1.99 doubles the cushion. Either works; it's changeable later.)
-   - Activate the product.
-3. **Testing**: add your own Gmail under Settings → License testing so
-   you can test the purchase without being charged.
-4. **Store listing**: copy below. Privacy policy URL:
-   `https://gugosf114.github.io/heirloom-android/privacy.html`
-5. **Data safety form** (the app has no accounts, no ads, no analytics):
-   - **Photos**: collected — yes (uploaded for processing); shared —
-     yes, with a service provider (AI processing); NOT stored beyond
-     processing; NOT used for any other purpose; encrypted in transit;
-     user can't request deletion (nothing is retained).
-   - **Purchase history**: handled by Google Play Billing, not the app.
-   - Everything else: not collected.
-6. **Content rating**: photo utility, no UGC sharing, no objectionable
-   content → Everyone.
-7. Upload the signed `.aab` (build script produces it), add screenshots
-   (before/after restores are the obvious money shots — use your own
-   family photos, that IS the pitch), submit.
-
 ## Listing copy
 
-**Title (30 chars):** `Heirloom: Restore Old Photos`
+**App name (30 characters max):** `Heirloom: Restore Photos`
 
-**Short description (80 chars):**
-`Repair and restore old family photos. Honest results. Pay once, no tricks.`
+**Short description (80 characters max):**
+
+`Repair old family photos with honest AI results. One purchase, no subscription.`
 
 **Full description:**
 
-That box of old family photos — scratched, faded, creased — deserves
+That box of old family photos — scratched, faded, and creased — deserves
 better than a filter.
 
-HEIRLOOM restores old and damaged photos with a careful, multi-step
-pipeline: faces are reconstructed, detail is sharpened, damage is
-repaired, and black-and-white photos can be brought into color.
+Heirloom restores old and damaged photographs with a careful multi-step
+process. It repairs damage, restores faces, sharpens detail, and can colorize
+black-and-white photos.
 
-What makes it different is what it refuses to do:
+What makes Heirloom different:
 
-★ HONEST RESTORATION — if the restored face has drifted from the person
-  in your original, Heirloom tells you instead of pretending. "Still
-  actually them" is the whole point.
-★ NO SUBSCRIPTION — one free restoration to see the quality, then a
-  single one-time unlock. Forever. No monthly anything.
-★ NO WATERMARKS. NO ADS. Your grandmother's portrait will not carry a
-  logo.
-★ NOTHING STORED — photos are processed and discarded. No account, no
-  gallery scraping, no cloud library.
+★ HONEST RESTORATION — Heirloom checks whether a restored face still resembles
+the original person and warns you when the result needs review.
+
+★ NO SUBSCRIPTION — Try one restoration free, then unlock unlimited
+restorations with one purchase.
+
+★ PRIVATE BY DESIGN — No account, ads, analytics, or cloud photo library.
+Photos are used only for the requested restoration and are deleted from the
+server when it finishes.
+
+★ NO WATERMARKS — Saved results belong in your family archive, not in an ad.
 
 For your family. Not your followers.
 
-**Screenshots:** before/after pairs are the sell. Take 3–4 restores of
-real old photos and screenshot the result screen (input/output tiles).
+## Product configuration
 
-**Feature graphic (1024×500):** before/after split of one strong restore
-with the tagline. TODO once George picks his best restore.
+- App package: `com.heirloom.app`
+- App price: Free
+- In-app product ID: `heirloom_lifetime_unlock_v1`
+- Product type: One-time product
+- Product name: `Unlock forever`
+- Product description: `Unlimited photo restorations. Pay once.`
+- No subscription products
+- Privacy policy:
+  `https://gugosf114.github.io/heirloom-android/privacy.html`
+- Terms:
+  `https://gugosf114.github.io/heirloom-android/terms.html`
 
-## Known launch notes
+The actual one-time price is configured in Play Console and automatically
+shown by the app. Do not put a fixed price in the store description.
 
-- The purchase button shows "Store unavailable" until the app is on a
-  Play testing track AND the product exists — that's Play working as
-  designed, not a bug. Internal testing track first.
-- Armenia: free automatically (SIM/locale/Play-country check in-app).
-- The worker is gated by APP_SHARED_SECRET (set 2026-07-02) — release
-  builds must be built on a machine whose gradle.properties carries
-  HEIRLOOM_APP_KEY, or restores will 401.
-- Cost watch: the AdaFace identity model runs on a Replicate deployment
-  with min_instances=1 (~the "$7/mo container"). If volume ever matters,
-  the Cloud Run scale-to-zero pipeline (branch `cloud-run-pipeline`) is
-  the cheaper backend — app was never repointed to it.
+## Data safety answers
+
+- Photos: collected for app functionality, processed ephemerally, encrypted in
+  transit, not retained after the request, not used for training.
+- User-provided report text: collected only when the user submits a report, for
+  safety and app quality, retained for 90 days.
+- App interaction/model-result metadata in a submitted report: collected for
+  safety and app quality, retained for 90 days.
+- Purchase history: processed by Google Play Billing for app functionality.
+- No account data, contacts, precise location, advertising ID, ads, or
+  analytics SDK.
+- Photos are handled by service providers Cloudflare and Google Cloud solely to
+  provide the restoration.
+
+## Content and policy declarations
+
+- Contains AI-generated or AI-modified content: Yes.
+- In-app reporting: `Report a problem` is available on every completed result.
+- Ads: No.
+- Target audience: General audience; not designed specifically for children.
+- Content rating: Photo utility. Answer the questionnaire truthfully; do not
+  preselect a rating.
+
+## Release order
+
+1. Create the app in Play Console.
+2. Complete App content, Data safety, privacy-policy, and content-rating forms.
+3. Create and activate the one-time product above.
+4. Add license testers.
+5. Upload the signed AAB to Internal testing and finish a real purchase test.
+6. Capture actual app screenshots from the tested release.
+7. Start the required closed test if the account is subject to Google's
+   12-testers-for-14-days personal-account rule.
+8. Submit production access and then the production release.
+
+## Operational notes
+
+- Release builds must include `HEIRLOOM_APP_KEY`; otherwise production restores
+  receive HTTP 401.
+- The Cloudflare Worker and Cloud Run service must share
+  `PIPELINE_SHARED_SECRET`.
+- Cloud Run is limited to one concurrent request per GPU instance and one
+  instance total. It scales to zero when idle, so the first request after idle
+  can take longer.

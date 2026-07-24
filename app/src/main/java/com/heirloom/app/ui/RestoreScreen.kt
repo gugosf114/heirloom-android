@@ -1,5 +1,6 @@
 package com.heirloom.app.ui
 
+import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material.icons.outlined.DocumentScanner
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,12 +45,19 @@ import com.heirloom.app.HeirloomApp
 import com.heirloom.app.R
 import com.heirloom.app.billing.Entitlement
 import com.heirloom.app.billing.allowsRestore
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.heirloom.app.data.RestoreState
 import com.heirloom.app.data.RestoreViewModel
 import com.heirloom.app.data.Stage
+import com.heirloom.app.data.StageResult
+import com.heirloom.app.ui.theater.RestorationTheater
 import kotlinx.coroutines.launch
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 
 @Composable
 fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
@@ -57,11 +66,37 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val reportThanksMessage = stringResource(R.string.report_thanks)
+    val reportFailedMessage = stringResource(R.string.report_failed)
 
     val billing = (context.applicationContext as HeirloomApp).billing
     val entitlement by billing.entitlement.collectAsStateWithLifecycle()
     var showPaywall by remember { mutableStateOf(false) }
     var lifetimeDetails by remember { mutableStateOf<ProductDetails?>(null) }
+    var reportTarget by remember { mutableStateOf<RestoreState.Done?>(null) }
+    var reportSubmitting by remember { mutableStateOf(false) }
+    var pendingLegacySave by remember { mutableStateOf<String?>(null) }
+
+    val saveRestoredPhoto: (String) -> Unit = { restoredUrl ->
+        scope.launch {
+            runCatching { PhotoIo.saveToGallery(context, restoredUrl) }
+                .onSuccess { snackbarHostState.showSnackbar("Saved to Pictures/Heirloom") }
+                .onFailure { snackbarHostState.showSnackbar(it.message ?: "Save failed") }
+        }
+    }
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val restoredUrl = pendingLegacySave
+        pendingLegacySave = null
+        if (granted && restoredUrl != null) {
+            saveRestoredPhoto(restoredUrl)
+        } else if (!granted) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Storage permission is needed to save this photo.")
+            }
+        }
+    }
 
     // Load the product lazily the first time the paywall opens.
     LaunchedEffect(showPaywall) {
@@ -159,9 +194,10 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         },
                         onReset = viewModel::reset,
                     )
-                    is RestoreState.Processing -> ProcessingBody(
+                    is RestoreState.Processing -> RestorationTheater(
                         sourceUri = current.source.toString(),
                         stage = current.stage,
+                        stageResults = current.stageResults,
                     )
                     is RestoreState.Done -> DoneBody(
                         sourceUri = current.source.toString(),
@@ -169,11 +205,23 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         identityWarning = current.identityWarning,
                         identityUnverified = current.identityUnverified,
                         wasColorized = current.wasColorized,
+                        cosineSimilarity = current.cosineSimilarity,
+                        elapsedSeconds = current.elapsedSeconds,
+                        stageResults = current.stageResults,
                         onSave = {
-                            scope.launch {
-                                runCatching { PhotoIo.saveToGallery(context, current.restoredUrl) }
-                                    .onSuccess { snackbarHostState.showSnackbar("Saved to Pictures/Heirloom") }
-                                    .onFailure { snackbarHostState.showSnackbar(it.message ?: "Save failed") }
+                            val needsLegacyPermission =
+                                Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                    ) != PackageManager.PERMISSION_GRANTED
+                            if (needsLegacyPermission) {
+                                pendingLegacySave = current.restoredUrl
+                                storagePermissionLauncher.launch(
+                                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                )
+                            } else {
+                                saveRestoredPhoto(current.restoredUrl)
                             }
                         },
                         onShare = {
@@ -182,6 +230,7 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                                     .onFailure { snackbarHostState.showSnackbar(it.message ?: "Share failed") }
                             }
                         },
+                        onReport = { reportTarget = current },
                         onReset = viewModel::reset,
                     )
                     is RestoreState.Failed -> FailedBody(
@@ -206,6 +255,113 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
             onDismiss = { showPaywall = false },
         )
     }
+
+    reportTarget?.let { target ->
+        ReportResultDialog(
+            submitting = reportSubmitting,
+            onSubmit = { reason, details ->
+                scope.launch {
+                    reportSubmitting = true
+                    viewModel.reportResult(target, reason, details)
+                        .onSuccess {
+                            reportTarget = null
+                            snackbarHostState.showSnackbar(reportThanksMessage)
+                        }
+                        .onFailure {
+                            snackbarHostState.showSnackbar(reportFailedMessage)
+                        }
+                    reportSubmitting = false
+                }
+            },
+            onDismiss = {
+                if (!reportSubmitting) reportTarget = null
+            },
+        )
+    }
+}
+
+private data class ReportReason(val key: String, val labelRes: Int)
+
+private val reportReasons = listOf(
+    ReportReason("wrong_person", R.string.report_reason_wrong_person),
+    ReportReason("distorted_face", R.string.report_reason_distorted_face),
+    ReportReason("offensive_or_unexpected", R.string.report_reason_unexpected),
+    ReportReason("poor_quality", R.string.report_reason_poor_quality),
+    ReportReason("other", R.string.report_reason_other),
+)
+
+@Composable
+private fun ReportResultDialog(
+    submitting: Boolean,
+    onSubmit: (reason: String, details: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selectedReason by rememberSaveable { mutableStateOf(reportReasons.first().key) }
+    var details by rememberSaveable { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.report_title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    text = stringResource(R.string.report_privacy),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                reportReasons.forEach { reason ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = selectedReason == reason.key,
+                            onClick = { selectedReason = reason.key },
+                            enabled = !submitting,
+                        )
+                        Text(
+                            text = stringResource(reason.labelRes),
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = details,
+                    onValueChange = { details = it.take(1_000) },
+                    label = { Text(stringResource(R.string.report_details)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !submitting,
+                    minLines = 2,
+                    maxLines = 5,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSubmit(selectedReason, details.trim()) },
+                enabled = !submitting,
+            ) {
+                Text(
+                    if (submitting) {
+                        stringResource(R.string.report_sending)
+                    } else {
+                        stringResource(R.string.report_submit)
+                    },
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !submitting) {
+                Text(stringResource(R.string.report_cancel))
+            }
+        },
+    )
 }
 
 @Composable
@@ -362,63 +518,24 @@ private fun PickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> 
 }
 
 @Composable
-private fun ProcessingBody(sourceUri: String, stage: Stage) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = sourceUri,
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 8.dp),
-        )
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f))
-                .border(1.dp, MaterialTheme.colorScheme.outline)
-                .padding(24.dp),
-        ) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = stageLabel(stage).uppercase(),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-private fun stageLabel(stage: Stage): String = when (stage) {
-    Stage.Uploading -> stringResource(R.string.status_uploading)
-    Stage.RepairingDamage -> stringResource(R.string.status_repairing)
-    Stage.RestoringFaces -> stringResource(R.string.status_faces)
-    Stage.Upscaling -> stringResource(R.string.status_upscaling)
-    Stage.CheckingIdentity -> stringResource(R.string.status_checking)
-    Stage.Colorizing -> stringResource(R.string.status_colorizing)
-    Stage.Finalizing -> stringResource(R.string.status_finalizing)
-}
-
-@Composable
 private fun DoneBody(
     sourceUri: String,
     restoredUrl: String,
     identityWarning: Boolean,
     identityUnverified: Boolean,
     wasColorized: Boolean,
+    cosineSimilarity: Double?,
+    elapsedSeconds: Long?,
+    stageResults: Map<Stage, StageResult>,
     onSave: () -> Unit,
     onShare: () -> Unit,
+    onReport: () -> Unit,
     onReset: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (identityWarning) {
@@ -450,6 +567,17 @@ private fun DoneBody(
             )
         }
 
+        Spacer(Modifier.height(12.dp))
+
+        RestorationReport(
+            cosineSimilarity = cosineSimilarity,
+            identityWarning = identityWarning,
+            identityUnverified = identityUnverified,
+            wasColorized = wasColorized,
+            elapsedSeconds = elapsedSeconds,
+            stageResults = stageResults,
+        )
+
         Spacer(Modifier.height(16.dp))
 
         Row(
@@ -470,6 +598,11 @@ private fun DoneBody(
             )
         }
         Spacer(Modifier.height(8.dp))
+        TextButton(onClick = onReport, shape = RectangleShape) {
+            Icon(Icons.Outlined.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.report_problem).uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         TextButton(onClick = onReset, shape = RectangleShape) {
             Icon(Icons.Outlined.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(6.dp))
@@ -547,7 +680,7 @@ private fun FailedBody(message: String, onRetry: () -> Unit, onReset: () -> Unit
         )
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "ERR: $message",
+            text = message,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
