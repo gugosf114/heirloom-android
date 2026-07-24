@@ -1,12 +1,8 @@
 # Heirloom
 
-> [!TIP]
-> ## [✨ DOWNLOAD THE PREMIUM REDESIGN FOR REVIEW](https://github.com/gugosf114/heirloom-android/raw/refs/heads/agent/premium-redesign/Heirloom-premium-review.apk)
-> This review APK updates the app on your phone without changing the public release.
-
 > [!IMPORTANT]
-> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc3.apk)
-> **Current phone build: RC3 · Android version code 3**
+> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc4.apk)
+> **Current phone build: RC4 · Android version code 4**
 
 Android photo restoration for old and damaged family photographs.
 
