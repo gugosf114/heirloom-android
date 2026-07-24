@@ -1,43 +1,41 @@
 package com.heirloom.app.billing
 
-/**
- * The user's restoration entitlement at a moment in time. Resolved by
- * combining geo (Armenia exempts), billing (paid unlock), and usage
- * (free-tier counter).
- *
- * UI consumes this via a single `when`. Adding a new tier means adding a
- * new branch — the compiler enforces exhaustive handling.
- */
 sealed interface Entitlement {
-    /** Free in Armenia, no paywall ever, unlimited usage. */
-    data object ArmeniaExempt : Entitlement
+    data object Loading : Entitlement
 
-    /** One-time unlock active (price set in Play Console). Unlimited usage. */
-    data object LifetimeUnlocked : Entitlement
+    data class Credits(
+        val freeRemaining: Int,
+        val paidRemaining: Int,
+    ) : Entitlement {
+        val totalRemaining: Int get() = freeRemaining + paidRemaining
+    }
 
-    /** No purchase, free-tier remaining. `remaining` decrements on each restore. */
-    data class FreeTier(val remaining: Int) : Entitlement
-
-    /** Free tier exhausted. UI shows paywall. */
     data object PaywallRequired : Entitlement
+
+    data class Unavailable(val message: String) : Entitlement
 }
 
-/**
- * Whether this entitlement permits starting a restoration. The UI must gate on
- * THIS, not just `!= PaywallRequired`: a FreeTier(0) can exist transiently at
- * startup (before refresh) or if billing never reconnects, and must NOT allow a
- * free restore.
- */
-fun Entitlement.allowsRestore(): Boolean = when (this) {
-    Entitlement.ArmeniaExempt,
-    Entitlement.LifetimeUnlocked -> true
-    is Entitlement.FreeTier -> remaining > 0
-    Entitlement.PaywallRequired -> false
-}
+fun Entitlement.allowsRestore(): Boolean =
+    this is Entitlement.Credits && totalRemaining > 0
 
-/** Product IDs. Wire to actual SKU IDs in Play Console before launch. */
+data class RestorationPack(
+    val productId: String,
+    val restorations: Int,
+    val expectedUsdPrice: String,
+)
+
 object ProductIds {
-    const val LIFETIME = "heirloom_lifetime_unlock_v1"
+    const val FIVE = "heirloom_restorations_5_v1"
+    const val TWENTY = "heirloom_restorations_20_v1"
+    const val FIFTY = "heirloom_restorations_50_v1"
+
+    val PACKS = listOf(
+        RestorationPack(FIVE, 5, "$2.99"),
+        RestorationPack(TWENTY, 20, "$7.99"),
+        RestorationPack(FIFTY, 50, "$14.99"),
+    )
+
+    val ALL: Set<String> = PACKS.mapTo(linkedSetOf()) { it.productId }
 }
 
-const val FREE_TIER_QUOTA = 1
+const val FREE_TIER_QUOTA = 3

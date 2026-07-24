@@ -57,10 +57,13 @@ th{color:var(--amberHi);font-weight:600;font-family:"IBM Plex Mono",monospace;fo
 <p>As part of restoration, the service temporarily computes face embeddings and a numeric similarity score comparing the face in the restored image with the original. This lets the App warn you when the result may depict the person inaccurately. The embeddings exist only during that request and are not retained or used to identify you. The score is returned to the App and is not retained by the restoration service.</p>
 
 <h3>Purchase information</h3>
-<p>If you make the one-time purchase to unlock unlimited restorations, the transaction is handled <strong>entirely by Google Play Billing</strong>. We receive a purchase confirmation (an entitlement token) so the App knows you've unlocked it. We never see or receive your name, card number, or payment details.</p>
+<p>If you buy a restoration-credit pack, the transaction is handled by <strong>Google Play Billing</strong>. Our server receives the product ID, an opaque purchase token, order information, purchase region, and purchase status so it can verify the purchase with Google, grant the correct credits, prevent duplicate grants, process refunds or cancellations, and consume an exhausted pack so it can be purchased again. We never receive your Google account email, name, card number, or payment details.</p>
 
 <h3>Free-trial count</h3>
-<p>The App keeps a small counter of how many free restorations you've used. This is stored <strong>locally on your device only</strong> and is never transmitted to us.</p>
+<p>Heirloom provides three free restorations. To prevent the trial from resetting whenever App data is cleared or the App is reinstalled, the App creates a one-way hash from an Android app-scoped device identifier and sends only that hash to our server. The raw Android identifier is not transmitted. Our server stores the hash and remaining free-credit balance. The hash is not your email, name, advertising ID, or precise location.</p>
+
+<h3>App and purchase verification</h3>
+<p>The App uses Google Play Integrity when it requests a restoration session. Google checks whether the App is Play-installed, recognized, licensed, and running on a device that meets its integrity requirements. Our server receives the resulting integrity verdict and a request-bound verification token. This protects paid restoration compute from modified or unlicensed clients.</p>
 
 <h3>Problem reports you choose to send</h3>
 <p>Every completed result includes a "Report a problem" control. If you use it, we receive the reason you select, optional text you enter, the App version, and limited facts about the result such as whether colorization ran and whether the identity check warned or was unavailable. <strong>The original and restored photos are not included.</strong> Reports are kept for up to 90 days so we can investigate safety and quality problems.</p>
@@ -83,6 +86,8 @@ th{color:var(--amberHi);font-weight:600;font-family:"IBM Plex Mono",monospace;fo
 <p>Cloudflare provides the secure gateway that streams each restoration request to our backend and accepts user-submitted problem reports. Photos are not stored in the report database. See Cloudflare's privacy policy: <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">cloudflare.com/privacypolicy</a>.</p>
 <h3>Google Play Billing</h3>
 <p>Purchases are processed by Google Play. See Google's privacy policy: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.</p>
+<h3>Google Play Integrity</h3>
+<p>Google Play Integrity verifies that restoration requests come from the recognized, Play-licensed App and an eligible device. It does not give us your Google account email or payment details.</p>
 <h3>Google Cloud (our backend)</h3>
 <p>Our restoration service and all five image models run on Google Cloud infrastructure. Files are created only in temporary request storage and deleted when processing ends. Photos are not sent to a separate third-party AI inference provider.</p>
 
@@ -94,8 +99,9 @@ th{color:var(--amberHi);font-weight:600;font-family:"IBM Plex Mono",monospace;fo
 <tr><td>Temporary face embeddings</td><td>Google Cloud request memory</td><td>Deleted at request end</td></tr>
 <tr><td>Face-match score</td><td>Computed on Google Cloud and returned to the App</td><td>Not retained by the service</td></tr>
 <tr><td>Problem report</td><td>Cloudflare KV</td><td>Up to 90 days; no photo included</td></tr>
-<tr><td>Purchase entitlement</td><td>Google Play + your device</td><td>While you own the App</td></tr>
-<tr><td>Free-trial counter</td><td>Your device only</td><td>Until you clear app data or uninstall</td></tr>
+<tr><td>Purchase and credit ledger</td><td>Google Play + Cloudflare D1</td><td>While credits remain and afterward as reasonably needed for refunds, fraud prevention, accounting, and legal obligations</td></tr>
+<tr><td>Hashed app-scoped identifier and free-trial balance</td><td>Cloudflare D1</td><td>While the service operates, unless deletion is required or requested where applicable</td></tr>
+<tr><td>Restoration session</td><td>Cloudflare D1</td><td>Up to 30 days</td></tr>
 </tbody>
 </table>
 
@@ -111,7 +117,7 @@ th{color:var(--amberHi);font-weight:600;font-family:"IBM Plex Mono",monospace;fo
 <h2>Your Rights</h2>
 <p>Because we don't keep a photo library or user account, there is no persistent photo profile to access or delete. Specifically:</p>
 <ul>
-<li><strong>Deletion:</strong> Your photos are already deleted automatically after each restoration. To remove all local app data (the free-trial counter and cached files), clear the App's data in Android settings or uninstall the App.</li>
+<li><strong>Deletion:</strong> Your photos are already deleted automatically after each restoration. Clearing App data or uninstalling removes cached files from your device, but does not reset the server-enforced free trial. Contact us about deletion of server-side billing or trial data; deleting an active credit ledger may forfeit unused credits.</li>
 <li><strong>Access / questions:</strong> Email us at any time and we'll help (see Contact).</li>
 <li><strong>Problem reports:</strong> To ask us to find or delete a report before its automatic 90-day expiration, contact us with the approximate submission date and the text you entered.</li>
 <li><strong>Purchases:</strong> Manage or request refunds for your purchase through Google Play.</li>
@@ -125,7 +131,7 @@ th{color:var(--amberHi);font-weight:600;font-family:"IBM Plex Mono",monospace;fo
 </ul>
 
 <h2>Regional Availability</h2>
-<p>Heirloom is free to use in Armenia, with no paywall, detected automatically from Play Store country or the device's SIM/network country. This does not change how data is handled.</p>
+<p>Heirloom's initial Google Play launch is available in the United States. Paid packs are accepted only when Google Play reports the purchase region as the United States.</p>
 
 <h2>Changes to This Policy</h2>
 <p>We may update this Privacy Policy from time to time. Changes are posted to this page with a new "Last updated" date. Continued use of the App after changes constitutes acceptance of the revised policy.</p>

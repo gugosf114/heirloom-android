@@ -2,7 +2,9 @@
 
 All 5 restoration models run **in this one container** on an L4 that **scales
 to zero** when idle. No Replicate, no API token, no per-call dependency on
-anyone — the compute is yours. Idle cost: **$0**; you pay cents per restore.
+anyone — the compute is yours. Active processing costs cents per restore.
+Cloud Run may keep a GPU instance warm briefly after an isolated request, so
+the billed cost of a lone restoration can be higher than its processing time.
 
 This replaces the previous third-party inference path and keeps the entire
 restoration pipeline in the project's Google Cloud service.

@@ -6,7 +6,7 @@
 
 **Short description (80 characters max):**
 
-`Repair old family photos with honest AI results. One purchase, no subscription.`
+`Repair old family photos with honest AI results. No subscription or watermark.`
 
 **Full description:**
 
@@ -22,8 +22,8 @@ What makes Heirloom different:
 ★ HONEST RESTORATION — Heirloom checks whether a restored face still resembles
 the original person and warns you when the result needs review.
 
-★ NO SUBSCRIPTION — Try one restoration free, then unlock unlimited
-restorations with one purchase.
+★ NO SUBSCRIPTION — Try three restorations free, then buy only the restoration
+credits you need. Nothing renews automatically.
 
 ★ PRIVATE BY DESIGN — No account, ads, analytics, or cloud photo library.
 Photos are used only for the requested restoration and are deleted from the
@@ -35,20 +35,20 @@ For your family. Not your followers.
 
 ## Product configuration
 
-- App package: `com.heirloom.app`
+- App package: `com.wimlabs.heirloom`
 - App price: Free
-- In-app product ID: `heirloom_lifetime_unlock_v1`
-- Product type: One-time product
-- Product name: `Unlock forever`
-- Product description: `Unlimited photo restorations. Pay once.`
+- Launch countries: United States only
+- Product type: Consumable one-time products
+- `heirloom_restorations_5_v1` — 5 restorations — $2.99
+- `heirloom_restorations_20_v1` — 20 restorations — $7.99
+- `heirloom_restorations_50_v1` — 50 restorations — $14.99
 - No subscription products
 - Privacy policy:
   `https://gugosf114.github.io/heirloom-android/privacy.html`
 - Terms:
   `https://gugosf114.github.io/heirloom-android/terms.html`
 
-The actual one-time price is configured in Play Console and automatically
-shown by the app. Do not put a fixed price in the store description.
+Prices are configured in Play Console and shown by the app from Google Play.
 
 ## Data safety answers
 
@@ -59,7 +59,12 @@ shown by the app. Do not put a fixed price in the store description.
 - App interaction/model-result metadata in a submitted report: collected for
   safety and app quality, retained for 90 days.
 - Purchase history: processed by Google Play Billing for app functionality.
-- No account data, contacts, precise location, advertising ID, ads, or
+- Device or other identifiers: an app-scoped, one-way-hashed Android identifier
+  is used to enforce the three-restoration trial and restore the balance after
+  reinstalling on the same device.
+- App integrity information: processed through Google Play Integrity to prevent
+  modified or unlicensed clients from spending restoration compute.
+- No account name/email, contacts, precise location, advertising ID, ads, or
   analytics SDK.
 - Photos are handled by service providers Cloudflare and Google Cloud solely to
   provide the restoration.
@@ -77,7 +82,8 @@ shown by the app. Do not put a fixed price in the store description.
 
 1. Create the app in Play Console.
 2. Complete App content, Data safety, privacy-policy, and content-rating forms.
-3. Create and activate the one-time product above.
+3. Create and activate all three consumable products above for the United
+   States only.
 4. Add license testers.
 5. Upload the signed AAB to Internal testing and finish a real purchase test.
 6. Capture actual app screenshots from the tested release.
@@ -87,8 +93,10 @@ shown by the app. Do not put a fixed price in the store description.
 
 ## Operational notes
 
-- Release builds must include `HEIRLOOM_APP_KEY`; otherwise production restores
-  receive HTTP 401.
+- Release builds use Play Integrity to obtain a server session. The shared app
+  key is development-only and is not a production purchase entitlement.
+- The Worker must have the `BILLING` D1 binding, Google service-account secret,
+  and Play package/version settings before a release can restore photos.
 - The Cloudflare Worker and Cloud Run service must share
   `PIPELINE_SHARED_SECRET`.
 - Cloud Run is limited to one concurrent request per GPU instance and one

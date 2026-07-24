@@ -12,7 +12,7 @@
     <string name="idle_eyebrow">Private photo restoration</string>
     <string name="idle_title">Bring a family photo back</string>
     <string name="idle_body">Repair age and damage while preserving the person you remember.</string>
-    <string name="idle_trust">One free restoration · No subscription</string>
+    <string name="idle_trust">Three restorations free · No subscription</string>
     <string name="photo_placeholder">Your photograph</string>
     <string name="photo_placeholder_hint">Choose from your gallery or scan a print</string>
     <string name="picked_title">Ready to restore</string>
@@ -44,15 +44,15 @@
     <string name="error_generic">Something went wrong. Try again.</string>
     <string name="error_network">No internet connection.</string>
 
-    <string name="paywall_title">Unlock Heirloom</string>
-    <string name="paywall_body">Your free restoration is used. Unlock unlimited restorations — pay once, keep it forever.</string>
-    <string name="paywall_cta">Unlock forever — %1$s</string>
+    <string name="paywall_title">Choose a restoration pack</string>
+    <string name="paywall_body">Your three free restorations are used. Buy only the restorations you need.</string>
     <string name="paywall_unavailable">Store unavailable right now. Try again in a moment.</string>
     <string name="paywall_not_now">Not now</string>
-    <string name="paywall_subtitle">No watermarks. No ads. No subscription tricks.</string>
-    <string name="free_tier_remaining">%1$d free restoration left</string>
-    <string name="free_tier_badge">%1$d free left</string>
-    <string name="armenia_free">Free in Armenia. Always.</string>
+    <string name="paywall_subtitle">One credit is used only after a restoration succeeds. No subscription or recurring charge.</string>
+    <string name="credits_badge">%1$d left</string>
+    <string name="pack_restorations">%1$d restorations</string>
+    <string name="pack_most_popular">Most popular</string>
+    <string name="pack_loading">Loading…</string>
 
     <string name="report_problem">Report a problem</string>
     <string name="report_title">Report this result</string>

@@ -59,7 +59,7 @@ import com.heirloom.app.data.StageResult
 
 @Composable
 internal fun HeirloomBrandHeader(
-    freeRemaining: Int?,
+    creditsRemaining: Int?,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -87,14 +87,14 @@ internal fun HeirloomBrandHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        freeRemaining?.let {
+        creditsRemaining?.let {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Text(
-                    text = stringResource(R.string.free_tier_badge, it),
+                    text = stringResource(R.string.credits_badge, it),
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                 )

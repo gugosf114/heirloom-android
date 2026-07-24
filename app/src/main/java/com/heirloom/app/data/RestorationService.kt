@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.heirloom.app.HeirloomApp
 import com.heirloom.app.MainActivity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -124,6 +125,9 @@ class RestorationService : Service() {
                     stageResults = stageResults.toMap(),
                 ),
             )
+            (application as HeirloomApp).billing.recordSuccessfulRestoration(
+                result.creditsRemaining,
+            )
             finishNotification("Restoration complete", "Tap to view your restored photo")
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -202,7 +206,16 @@ class RestorationService : Service() {
         is UnknownHostException -> "No internet connection. Reconnect and try again."
         is SocketTimeoutException -> "The restoration took too long. Please try again."
         is RestoreHttpException -> when (error.statusCode) {
-            401 -> "This installation needs to be refreshed. Please update Heirloom."
+            401 -> {
+                (application as HeirloomApp).billing.refreshAsync()
+                "Restoration access expired. Reopen Heirloom and try again."
+            }
+            402 -> {
+                (application as HeirloomApp).billing.recordCreditsExhausted()
+                "Choose a restoration pack to continue."
+            }
+            403 -> "Install Heirloom from Google Play to restore photos."
+            409 -> "This restoration was already submitted. Choose the photo again."
             429 -> "The restoration lab is busy. Try again in a moment."
             503 -> "The restoration lab is warming up. Try again in a moment."
             else -> "The restoration could not finish. Please try again."

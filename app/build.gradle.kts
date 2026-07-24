@@ -13,18 +13,21 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.heirloom.app"
+        applicationId = "com.wimlabs.heirloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.0-rc4"
+        versionCode = 6
+        versionName = "1.0.0-rc6"
         vectorDrawables { useSupportLibrary = true }
     }
 
-    // Optional shared secret gating the worker (see worker/src/index.ts).
-    // Set in ~/.gradle/gradle.properties: HEIRLOOM_APP_KEY=<value of the
-    // APP_SHARED_SECRET wrangler secret>. Empty = header not sent (dev/open).
+    // Optional key for local development against a gated development Worker.
+    // Production uses Play Integrity and server-issued sessions instead.
     val appSharedSecret = (project.findProperty("HEIRLOOM_APP_KEY") as? String) ?: ""
+    // Public Google Cloud project number linked to Heirloom in Play Console.
+    // Debug/sideload builds may leave this as 0 and use the development Worker.
+    val playIntegrityProjectNumber =
+        (project.findProperty("HEIRLOOM_PLAY_PROJECT_NUMBER") as? String) ?: "787543109204"
 
     // Play upload key — configured per-machine, never in the repo. In
     // ~/.gradle/gradle.properties set:
@@ -48,6 +51,11 @@ android {
         debug {
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker-dev.gugosf.workers.dev\"")
             buildConfigField("String", "APP_SHARED_SECRET", "\"$appSharedSecret\"")
+            buildConfigField(
+                "long",
+                "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER",
+                "0L",
+            )
         }
         release {
             if (uploadStore != null && uploadPassword != null) {
@@ -59,7 +67,14 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker.gugosf.workers.dev\"")
-            buildConfigField("String", "APP_SHARED_SECRET", "\"$appSharedSecret\"")
+            // Production authentication is Play Integrity + a server-issued
+            // session. Never package the development shared key in a release.
+            buildConfigField("String", "APP_SHARED_SECRET", "\"\"")
+            buildConfigField(
+                "long",
+                "PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER",
+                "${playIntegrityProjectNumber}L",
+            )
         }
     }
 
@@ -114,6 +129,7 @@ dependencies {
 
     // Google Play Billing
     implementation("com.android.billingclient:billing-ktx:9.1.0")
+    implementation("com.google.android.play:integrity:1.6.0")
 
     // ML Kit Document Scanner (For perspective cropping physical photos)
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")

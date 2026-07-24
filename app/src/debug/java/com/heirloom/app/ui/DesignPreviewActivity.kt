@@ -54,7 +54,7 @@ class DesignPreviewActivity : ComponentActivity() {
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            HeirloomBrandHeader(freeRemaining = 1)
+                            HeirloomBrandHeader(creditsRemaining = 3)
                             Box(
                                 modifier = Modifier
                                     .weight(1f)

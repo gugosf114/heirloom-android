@@ -25,7 +25,7 @@ const TEST_IMAGE_URL =
   'https://tile.loc.gov/storage-services/service/pnp/fsa/8b29000/8b29500/8b29516r.jpg';
 const TEST_UA =
   'HeirloomSmokeTest/0.1 (https://github.com/gugosf114/heirloom-android; gugosf@gmail.com)';
-const APP_SHARED_SECRET = process.env.APP_SHARED_SECRET;
+const SMOKE_TEST_SECRET = process.env.SMOKE_TEST_SECRET;
 const PIPELINE_SHARED_SECRET = process.env.PIPELINE_SHARED_SECRET;
 
 interface StageEvent {
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
   const resp = await fetch(`${WORKER_URL}/restore-stream`, {
     method: 'POST',
     headers: {
-      ...(APP_SHARED_SECRET ? { 'X-App-Key': APP_SHARED_SECRET } : {}),
+      ...(SMOKE_TEST_SECRET ? { 'X-Smoke-Key': SMOKE_TEST_SECRET } : {}),
       ...(PIPELINE_SHARED_SECRET ? { 'X-Pipeline-Key': PIPELINE_SHARED_SECRET } : {}),
     },
     body: form,

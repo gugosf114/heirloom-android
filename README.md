@@ -1,8 +1,8 @@
 # Heirloom
 
 > [!IMPORTANT]
-> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc4.apk)
-> **Current phone build: RC4 · Android version code 4**
+> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc6.apk)
+> **Current phone build: RC6 · Android version code 6**
 
 Android photo restoration for old and damaged family photographs.
 
@@ -14,10 +14,11 @@ Heirloom restores one selected photo at a time. It repairs damage, restores
 faces, upscales detail, checks whether the restored face still resembles the
 original, and colorizes black-and-white input when appropriate.
 
-- One free restoration
-- One-time Google Play unlock
+- Three free restorations per eligible Play installation
+- Consumable Google Play packs: 5, 20, or 50 additional restorations
+- Server-verified purchases and restoration credits
 - No ads, watermarks, accounts, or subscriptions
-- Unlimited use without a paywall for users in Armenia
+- United States launch availability
 - A visible warning when the identity check detects drift
 - In-app reporting for unsafe, unexpected, or poor AI output
 
@@ -25,7 +26,8 @@ original, and colorizes black-and-white input when appropriate.
 
 ```text
 Android (Kotlin + Compose)
-  -> authenticated Cloudflare Worker
+  -> Play Integrity + Google Play Billing
+  -> authenticated Cloudflare Worker + D1 credit ledger
   -> Google Cloud Run L4 GPU
      1. Bringing Old Photos Back to Life
      2. CodeFormer
@@ -39,10 +41,13 @@ Android (Kotlin + Compose)
 The restoration models are self-hosted in Cloud Run. Replicate is not part of
 the runtime architecture.
 
-The Worker streams photo requests and responses without storing them. Cloud
-Run uses a request-specific temporary directory and deletes it when processing
-finishes. User-submitted problem reports contain metadata and optional text,
-never the photo, and expire after 90 days.
+The Worker verifies the Play-installed app and Google Play purchase receipts,
+then atomically reserves one server-side credit for each restoration. Failed
+restorations return the reserved credit. The Worker streams photo requests and
+responses without storing them. Cloud Run uses a request-specific temporary
+directory and deletes it when processing finishes. User-submitted problem
+reports contain metadata and optional text, never the photo, and expire after
+90 days.
 
 ## Repository
 
@@ -65,6 +70,7 @@ cd ..
 ./gradlew testDebugUnitTest lintDebug bundleRelease
 ```
 
-Release signing and the app-to-Worker key are provided through private Gradle
-properties. Backend deployment secrets are stored in Cloudflare Workers
-secrets and Google Secret Manager; none belong in this repository.
+Release signing is provided through private Gradle properties. Production app
+authentication uses Play Integrity and server-issued sessions. Backend
+deployment secrets are stored in Cloudflare Workers secrets and Google Secret
+Manager; none belong in this repository.

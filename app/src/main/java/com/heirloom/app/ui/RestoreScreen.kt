@@ -30,6 +30,8 @@ import com.android.billingclient.api.ProductDetails
 import com.heirloom.app.HeirloomApp
 import com.heirloom.app.R
 import com.heirloom.app.billing.Entitlement
+import com.heirloom.app.billing.ProductIds
+import com.heirloom.app.billing.RestorationPack
 import com.heirloom.app.billing.allowsRestore
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -55,7 +57,7 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     val billing = (context.applicationContext as HeirloomApp).billing
     val entitlement by billing.entitlement.collectAsStateWithLifecycle()
     var showPaywall by remember { mutableStateOf(false) }
-    var lifetimeDetails by remember { mutableStateOf<ProductDetails?>(null) }
+    var packDetails by remember { mutableStateOf<List<ProductDetails>>(emptyList()) }
     var reportTarget by remember { mutableStateOf<RestoreState.Done?>(null) }
     var reportSubmitting by remember { mutableStateOf(false) }
     var pendingLegacySave by remember { mutableStateOf<String?>(null) }
@@ -81,25 +83,17 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
         }
     }
 
-    // Load the product lazily the first time the paywall opens.
+    // Load localized Google Play prices lazily when the pack chooser opens.
     LaunchedEffect(showPaywall) {
-        if (showPaywall && lifetimeDetails == null) {
-            lifetimeDetails = billing.lifetimeDetails()
+        if (showPaywall && packDetails.isEmpty()) {
+            packDetails = billing.queryPackDetails()
         }
     }
-    // A completed purchase (or geo exemption) closes the paywall by itself.
+    // A server-verified purchase closes the pack chooser by itself.
     LaunchedEffect(entitlement) {
-        if (showPaywall && entitlement !is Entitlement.PaywallRequired) showPaywall = false
-    }
-    // One free restoration is consumed only when a restore actually succeeds —
-    // exactly once per result. Keyed on the restored URL (unique per restore) and
-    // saved across config changes so a rotation/re-entry while Done can't double-count.
-    var lastConsumedUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(state) {
-        val s = state
-        if (s is RestoreState.Done && s.restoredUrl != lastConsumedUrl) {
-            lastConsumedUrl = s.restoredUrl
-            billing.consumeFreeRestoration()
+        val credits = entitlement as? Entitlement.Credits
+        if (showPaywall && credits != null && credits.totalRemaining > 0) {
+            showPaywall = false
         }
     }
 
@@ -143,7 +137,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 HeirloomBrandHeader(
-                    freeRemaining = (entitlement as? Entitlement.FreeTier)?.remaining,
+                    creditsRemaining =
+                        (entitlement as? Entitlement.Credits)?.totalRemaining,
                 )
 
                 AnimatedContent(
@@ -172,8 +167,22 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         is RestoreState.Picked -> PremiumPickedBody(
                             sourceUri = current.source.toString(),
                             onRestore = {
-                                if (entitlement.allowsRestore()) viewModel.startRestoration()
-                                else showPaywall = true
+                                when (val access = entitlement) {
+                                    is Entitlement.Credits -> {
+                                        if (access.allowsRestore()) viewModel.startRestoration()
+                                        else showPaywall = true
+                                    }
+                                    Entitlement.PaywallRequired -> showPaywall = true
+                                    Entitlement.Loading -> scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            "Checking restoration access…",
+                                        )
+                                    }
+                                    is Entitlement.Unavailable -> scope.launch {
+                                        snackbarHostState.showSnackbar(access.message)
+                                        billing.refreshAsync()
+                                    }
+                                }
                             },
                             onReset = viewModel::reset,
                         )
@@ -219,10 +228,20 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         is RestoreState.Failed -> PremiumFailedBody(
                             message = current.message,
                             onRetry = {
-                                // Retry must respect the same paywall gate as the initial
-                                // restore — a failure mid-session shouldn't be a free bypass.
-                                if (entitlement.allowsRestore()) viewModel.startRestoration()
-                                else showPaywall = true
+                                when (val access = entitlement) {
+                                    is Entitlement.Credits -> {
+                                        if (access.allowsRestore()) viewModel.startRestoration()
+                                        else showPaywall = true
+                                    }
+                                    Entitlement.PaywallRequired -> showPaywall = true
+                                    Entitlement.Loading -> billing.refreshAsync()
+                                    is Entitlement.Unavailable -> {
+                                        billing.refreshAsync()
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(access.message)
+                                        }
+                                    }
+                                }
                             },
                             onReset = viewModel::reset,
                         )
@@ -234,7 +253,7 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
 
     if (showPaywall) {
         PaywallDialog(
-            details = lifetimeDetails,
+            details = packDetails,
             onBuy = { d -> activity?.let { billing.launchPurchase(it, d) } },
             onDismiss = { showPaywall = false },
         )
@@ -360,11 +379,10 @@ private fun ReportResultDialog(
 
 @Composable
 private fun PaywallDialog(
-    details: ProductDetails?,
+    details: List<ProductDetails>,
     onBuy: (ProductDetails) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val price = details?.oneTimePurchaseOfferDetails?.formattedPrice
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
@@ -394,9 +412,20 @@ private fun PaywallDialog(
             )
         },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
                 Text(stringResource(R.string.paywall_body))
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(14.dp))
+                ProductIds.PACKS.forEach { pack ->
+                    val product = details.firstOrNull { it.productId == pack.productId }
+                    PackPurchaseButton(
+                        pack = pack,
+                        product = product,
+                        onBuy = onBuy,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
                 Text(
                     stringResource(R.string.paywall_subtitle),
                     style = MaterialTheme.typography.bodySmall,
@@ -404,21 +433,51 @@ private fun PaywallDialog(
                 )
             }
         },
-        confirmButton = {
-            if (details != null && price != null) {
-                Button(onClick = { onBuy(details) }) {
-                    Text(stringResource(R.string.paywall_cta, price))
-                }
-            } else {
-                Text(
-                    stringResource(R.string.paywall_unavailable),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
+        confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.paywall_not_now)) }
         },
     )
+}
+
+@Composable
+private fun PackPurchaseButton(
+    pack: RestorationPack,
+    product: ProductDetails?,
+    onBuy: (ProductDetails) -> Unit,
+) {
+    val playPrice = product?.oneTimePurchaseOfferDetailsList
+        ?.firstOrNull()
+        ?.formattedPrice
+        ?: product?.oneTimePurchaseOfferDetails?.formattedPrice
+        ?: pack.expectedUsdPrice
+    OutlinedButton(
+        onClick = { product?.let(onBuy) },
+        enabled = product != null,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp),
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Text(
+                text = stringResource(R.string.pack_restorations, pack.restorations),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (pack.restorations == 20) {
+                Text(
+                    text = stringResource(R.string.pack_most_popular),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        Text(
+            text = if (product != null) playPrice else stringResource(R.string.pack_loading),
+            style = MaterialTheme.typography.titleMedium,
+        )
+    }
 }

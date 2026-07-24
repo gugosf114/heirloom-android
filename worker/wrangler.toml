@@ -4,17 +4,33 @@ compatibility_date = "2026-07-24"
 
 [vars]
 PIPELINE_BASE_URL = "https://heirloom-pipeline-qfv7mm5hva-uc.a.run.app"
+PLAY_PACKAGE_NAME = "com.wimlabs.heirloom"
+REQUIRE_PLAY_INTEGRITY = "true"
+MIN_ANDROID_VERSION_CODE = "6"
 
 [[kv_namespaces]]
 binding = "REPORTS"
 id = "429f2b6425e0469ca0ea5d077672d5b7"
+
+[[d1_databases]]
+binding = "BILLING"
+database_name = "heirloom-billing"
+database_id = "05bebc45-ed03-4e37-b602-d4145fdcad6a"
 
 [env.dev]
 name = "heirloom-worker-dev"
 
 [env.dev.vars]
 PIPELINE_BASE_URL = "https://heirloom-pipeline-qfv7mm5hva-uc.a.run.app"
+PLAY_PACKAGE_NAME = "com.wimlabs.heirloom"
+REQUIRE_PLAY_INTEGRITY = "false"
+MIN_ANDROID_VERSION_CODE = "6"
 
 [[env.dev.kv_namespaces]]
 binding = "REPORTS"
 id = "429f2b6425e0469ca0ea5d077672d5b7"
+
+[[env.dev.d1_databases]]
+binding = "BILLING"
+database_name = "heirloom-billing-dev"
+database_id = "4fb6638c-dce2-4e6e-8c21-5c3167408608"

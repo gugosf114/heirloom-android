@@ -2,7 +2,6 @@ package com.heirloom.app.billing
 
 import android.app.Activity
 import android.content.Context
-import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
@@ -12,6 +11,7 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import com.heirloom.app.BuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,165 +19,209 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
-/**
- * Wraps Google Play Billing Library v9 for Heirloom's one-time unlock.
- *
- * Lifecycle:
- *   - construct in Application/Activity scope
- *   - call connect() once
- *   - call refresh() to recompute entitlement from current purchases
- *   - call launchPurchase(activity, productId) to start a flow
- *   - observe entitlement via the StateFlow
- */
-class BillingManager(context: Context, private val usage: UsageTracker) :
-    PurchasesUpdatedListener {
-
+class BillingManager(context: Context) : PurchasesUpdatedListener {
     private val appContext = context.applicationContext
+    private val clientId = ClientIdentity.get(appContext)
+    private val attestor = PlayIntegrityAttestor(
+        appContext,
+        BuildConfig.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER,
+    )
+    private val server = BillingServerApi(clientId, attestor)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val refreshMutex = Mutex()
 
     private val client: BillingClient = BillingClient.newBuilder(appContext)
         .setListener(this)
         .enablePendingPurchases(
-            PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
+            PendingPurchasesParams.newBuilder().enableOneTimeProducts().build(),
         )
         .enableAutoServiceReconnection()
         .build()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    // Start from the correct state: an exhausted user must open on PaywallRequired,
-    // never FreeTier(0), which the UI would otherwise treat as a free restore
-    // before refresh() runs (or if billing never reconnects).
-    private val _entitlement = MutableStateFlow<Entitlement>(
-        if (usage.remaining() > 0) Entitlement.FreeTier(usage.remaining())
-        else Entitlement.PaywallRequired
-    )
+    private val _entitlement = MutableStateFlow<Entitlement>(Entitlement.Loading)
     val entitlement: StateFlow<Entitlement> = _entitlement.asStateFlow()
 
-    private var armeniaExempt: Boolean = false
+    @Volatile
+    private var sessionToken: String? = null
 
-    val billingClient: BillingClient get() = client
-
-    suspend fun connect(): Boolean = suspendCancellableCoroutine { cont ->
-        if (client.isReady) {
-            cont.resume(true); return@suspendCancellableCoroutine
-        }
-        client.startConnection(object : com.android.billingclient.api.BillingClientStateListener {
-            override fun onBillingSetupFinished(result: BillingResult) {
-                cont.resume(result.responseCode == BillingClient.BillingResponseCode.OK)
-            }
-            override fun onBillingServiceDisconnected() {
-                // Caller may retry connect(); we don't auto-retry here.
-            }
-        })
-    }
-
-    fun setArmeniaExempt(exempt: Boolean) {
-        armeniaExempt = exempt
-        if (exempt) _entitlement.value = Entitlement.ArmeniaExempt
-        else recomputeFreeTier()
+    suspend fun start() {
+        attestor.prepare()
+        refresh()
     }
 
     suspend fun refresh() {
-        if (armeniaExempt) {
-            _entitlement.value = Entitlement.ArmeniaExempt
-            return
-        }
-        val active = activePurchases()
-        when {
-            active.any { it.products.contains(ProductIds.LIFETIME) } ->
-                _entitlement.value = Entitlement.LifetimeUnlocked
-            else -> recomputeFreeTier()
-        }
-        active.filter { !it.isAcknowledged }.forEach(::acknowledge)
-    }
-
-    /** Caller must invoke this only after a successful restoration. */
-    fun consumeFreeRestoration() {
-        if (armeniaExempt) return
-        if (_entitlement.value is Entitlement.LifetimeUnlocked) return
-        usage.increment()
-        recomputeFreeTier()
-    }
-
-    suspend fun queryProductDetails(): List<ProductDetails> {
-        val params = QueryProductDetailsParams.newBuilder()
-            .setProductList(
-                listOf(
-                    QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(ProductIds.LIFETIME)
-                        .setProductType(BillingClient.ProductType.INAPP)
-                        .build(),
-                )
-            )
-            .build()
-        return suspendCancellableCoroutine { cont ->
-            client.queryProductDetailsAsync(params) { result, queryResult ->
-                if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    cont.resume(queryResult.productDetailsList)
-                } else {
-                    cont.resume(emptyList())
+        refreshMutex.withLock {
+            _entitlement.value = Entitlement.Loading
+            try {
+                if (!connect()) {
+                    throw IllegalStateException("Google Play is unavailable")
                 }
+                val receipts = activePurchases().map { purchase ->
+                    PurchaseReceipt(
+                        productId = purchase.products.single(),
+                        purchaseToken = purchase.purchaseToken,
+                    )
+                }
+                applyServerEntitlement(server.sync(receipts))
+            } catch (error: Throwable) {
+                sessionToken = null
+                _entitlement.value = Entitlement.Unavailable(
+                    when (error) {
+                        is BillingServerException -> when (error.statusCode) {
+                            403 -> "Install Heirloom from Google Play to restore photos."
+                            else -> "Restoration access could not be verified. Try again."
+                        }
+                        else -> "Google Play could not verify restoration access. Try again."
+                    },
+                )
             }
         }
     }
 
-    /** The one product the paywall sells. Null until Play has it (or offline). */
-    suspend fun lifetimeDetails(): ProductDetails? =
-        queryProductDetails().firstOrNull { it.productId == ProductIds.LIFETIME }
+    fun refreshAsync() {
+        scope.launch { refresh() }
+    }
+
+    fun restoreAuthorization(): RestoreAuthorization? =
+        sessionToken?.let(::RestoreAuthorization)
+
+    fun recordSuccessfulRestoration(serverRemaining: Int?) {
+        val credits = _entitlement.value as? Entitlement.Credits ?: return
+        val next = when {
+            credits.freeRemaining > 0 -> credits.copy(freeRemaining = credits.freeRemaining - 1)
+            credits.paidRemaining > 0 -> credits.copy(paidRemaining = credits.paidRemaining - 1)
+            else -> credits
+        }
+        val reconciled = if (serverRemaining != null && serverRemaining != next.totalRemaining) {
+            // A second device may have spent a paid credit. Refresh gets the exact split.
+            refreshAsync()
+            next
+        } else {
+            next
+        }
+        _entitlement.value =
+            if (reconciled.totalRemaining > 0) reconciled else Entitlement.PaywallRequired
+    }
+
+    fun recordCreditsExhausted() {
+        _entitlement.value = Entitlement.PaywallRequired
+        refreshAsync()
+    }
+
+    suspend fun queryPackDetails(): List<ProductDetails> {
+        if (!connect()) return emptyList()
+        val products = ProductIds.PACKS.map { pack ->
+            QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(pack.productId)
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+        }
+        val params = QueryProductDetailsParams.newBuilder()
+            .setProductList(products)
+            .build()
+        return suspendCancellableCoroutine { continuation ->
+            client.queryProductDetailsAsync(params) { result, queryResult ->
+                continuation.resume(
+                    if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                        queryResult.productDetailsList.sortedBy { details ->
+                            ProductIds.PACKS.indexOfFirst { it.productId == details.productId }
+                        }
+                    } else {
+                        emptyList()
+                    },
+                )
+            }
+        }
+    }
 
     fun launchPurchase(activity: Activity, details: ProductDetails) {
-        val offerToken = details.subscriptionOfferDetails?.firstOrNull()?.offerToken
-        val productParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
+        if (details.productId !in ProductIds.ALL) return
+        val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(details)
-        if (offerToken != null) productParamsBuilder.setOfferToken(offerToken)
-
+            .apply {
+                details.oneTimePurchaseOfferDetailsList
+                    ?.firstOrNull()
+                    ?.offerToken
+                    ?.let(::setOfferToken)
+            }
+            .build()
         val params = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(listOf(productParamsBuilder.build()))
+            .setProductDetailsParamsList(listOf(productParams))
+            .setObfuscatedAccountId(clientId)
             .build()
         val result = client.launchBillingFlow(activity, params)
-        // If Play reports the item is already owned, onPurchasesUpdated does NOT
-        // fire — reconcile from the purchase list so a paid user isn't stuck gated.
         if (result.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) {
-            scope.launch { refresh() }
+            refreshAsync()
         }
     }
 
-    override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
-        if (result.responseCode != BillingClient.BillingResponseCode.OK || purchases == null) return
-        val purchased = purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-        purchased.filter { !it.isAcknowledged }.forEach(::acknowledge)
-        // Flip entitlement immediately so the paywall dismisses without a manual refresh.
-        when {
-            purchased.any { it.products.contains(ProductIds.LIFETIME) } ->
-                _entitlement.value = Entitlement.LifetimeUnlocked
+    override fun onPurchasesUpdated(
+        result: BillingResult,
+        purchases: MutableList<Purchase>?,
+    ) {
+        if (
+            result.responseCode == BillingClient.BillingResponseCode.OK &&
+            purchases?.any {
+                it.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                    it.products.any(ProductIds.ALL::contains)
+            } == true
+        ) {
+            refreshAsync()
         }
     }
 
-    private fun acknowledge(purchase: Purchase) {
-        val params = AcknowledgePurchaseParams.newBuilder()
-            .setPurchaseToken(purchase.purchaseToken)
-            .build()
-        client.acknowledgePurchase(params) { /* fire and forget; refresh() will reconcile */ }
+    private suspend fun connect(): Boolean = suspendCancellableCoroutine { continuation ->
+        if (client.isReady) {
+            continuation.resume(true)
+            return@suspendCancellableCoroutine
+        }
+        client.startConnection(object : com.android.billingclient.api.BillingClientStateListener {
+            override fun onBillingSetupFinished(result: BillingResult) {
+                continuation.resume(
+                    result.responseCode == BillingClient.BillingResponseCode.OK,
+                )
+            }
+
+            override fun onBillingServiceDisconnected() = Unit
+        })
     }
 
-    private suspend fun activePurchases(): List<Purchase> {
-        return queryPurchases(BillingClient.ProductType.INAPP)
-            .filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-    }
-
-    private suspend fun queryPurchases(productType: String): List<Purchase> =
-        suspendCancellableCoroutine { cont ->
+    private suspend fun activePurchases(): List<Purchase> =
+        suspendCancellableCoroutine { continuation ->
             client.queryPurchasesAsync(
-                QueryPurchasesParams.newBuilder().setProductType(productType).build()
-            ) { _, list -> cont.resume(list) }
+                QueryPurchasesParams.newBuilder()
+                    .setProductType(BillingClient.ProductType.INAPP)
+                    .build(),
+            ) { result, purchases ->
+                continuation.resume(
+                    if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                        purchases.filter {
+                            it.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                                it.products.size == 1 &&
+                                it.products.single() in ProductIds.ALL
+                        }
+                    } else {
+                        emptyList()
+                    },
+                )
+            }
         }
 
-    private fun recomputeFreeTier() {
-        val remaining = usage.remaining()
-        _entitlement.value = if (remaining > 0) Entitlement.FreeTier(remaining)
-        else Entitlement.PaywallRequired
+    private fun applyServerEntitlement(serverEntitlement: ServerEntitlement) {
+        sessionToken = serverEntitlement.sessionToken
+        _entitlement.value =
+            if (serverEntitlement.totalRemaining > 0) {
+                Entitlement.Credits(
+                    freeRemaining = serverEntitlement.freeRemaining,
+                    paidRemaining = serverEntitlement.paidRemaining,
+                )
+            } else {
+                Entitlement.PaywallRequired
+            }
     }
 }

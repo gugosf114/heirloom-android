@@ -44,6 +44,7 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
         details: String,
     ): Result<Unit> = runCatching {
         RestoreApi.report(
+            getApplication(),
             ResultReport(
                 reason = reason,
                 details = details,

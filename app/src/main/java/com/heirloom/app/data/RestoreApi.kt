@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
+import com.heirloom.app.HeirloomApp
 import com.heirloom.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,6 +29,7 @@ data class RestoreResult(
     val identityWarning: Boolean,
     val wasColorized: Boolean,
     val identityUnverified: Boolean,
+    val creditsRemaining: Int?,
 )
 
 data class ResultReport(
@@ -52,6 +54,9 @@ object RestoreApi {
         source: Uri,
         onEvent: (PipelineEvent) -> Unit,
     ): RestoreResult = withContext(Dispatchers.IO) {
+        val billing = (context.applicationContext as HeirloomApp).billing
+        val authorization = billing.restoreAuthorization()
+            ?: throw RestoreHttpException(401)
         val raw = context.contentResolver.openInputStream(source)?.use { it.readBytes() }
             ?: error("Could not read selected image")
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -79,12 +84,15 @@ object RestoreApi {
 
         val request = Request.Builder()
             .url("${BuildConfig.WORKER_BASE_URL}/restore-stream")
-            .apply { addAppKey() }
+            .header("Authorization", "Bearer ${authorization.sessionToken}")
+            .header("X-Restoration-ID", authorization.requestId)
             .post(body)
             .build()
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw RestoreHttpException(response.code)
+            val creditsRemaining =
+                response.header("X-Heirloom-Credits-Remaining")?.toIntOrNull()
             val responseBody = response.body ?: error("Restoration returned no data")
             var final: PipelineFinal? = null
             responseBody.source().use { sourceBuffer ->
@@ -113,11 +121,15 @@ object RestoreApi {
                 identityWarning = result.identityWarning,
                 wasColorized = result.wasColorized,
                 identityUnverified = result.identityUnverified,
+                creditsRemaining = creditsRemaining,
             )
         }
     }
 
-    suspend fun report(report: ResultReport) = withContext(Dispatchers.IO) {
+    suspend fun report(context: Context, report: ResultReport) = withContext(Dispatchers.IO) {
+        val authorization =
+            (context.applicationContext as HeirloomApp).billing.restoreAuthorization()
+                ?: throw RestoreHttpException(401)
         val json = JSONObject()
             .put("reason", report.reason)
             .put("details", report.details)
@@ -129,17 +141,11 @@ object RestoreApi {
 
         val request = Request.Builder()
             .url("${BuildConfig.WORKER_BASE_URL}/report")
-            .apply { addAppKey() }
+            .header("Authorization", "Bearer ${authorization.sessionToken}")
             .post(json.toString().toRequestBody("application/json".toMediaType()))
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw RestoreHttpException(response.code)
-        }
-    }
-
-    private fun Request.Builder.addAppKey() {
-        if (BuildConfig.APP_SHARED_SECRET.isNotEmpty()) {
-            header("X-App-Key", BuildConfig.APP_SHARED_SECRET)
         }
     }
 
