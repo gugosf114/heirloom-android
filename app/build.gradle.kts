@@ -16,8 +16,8 @@ android {
         applicationId = "com.heirloom.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.0-rc2"
+        versionCode = 3
+        versionName = "1.0.0-rc3"
         vectorDrawables { useSupportLibrary = true }
     }
 
