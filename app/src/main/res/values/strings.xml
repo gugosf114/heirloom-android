@@ -3,12 +3,33 @@
     <string name="app_name">Heirloom</string>
     <string name="tagline">For your family. Not your followers.</string>
 
-    <string name="pick_photo">Pick a photo</string>
+    <string name="pick_photo">Choose a photo</string>
     <string name="take_photo">Take a photo</string>
     <string name="restore">Restore</string>
     <string name="save">Save</string>
     <string name="share">Share</string>
     <string name="start_over">Start over</string>
+    <string name="idle_eyebrow">Private photo restoration</string>
+    <string name="idle_title">Bring a family photo back</string>
+    <string name="idle_body">Repair age and damage while preserving the person you remember.</string>
+    <string name="idle_trust">One free restoration · No subscription</string>
+    <string name="photo_placeholder">Your photograph</string>
+    <string name="photo_placeholder_hint">Choose from your gallery or scan a print</string>
+    <string name="picked_title">Ready to restore</string>
+    <string name="picked_body">Heirloom will repair damage, restore faces, enlarge detail, and check the result against the original.</string>
+    <string name="original_untouched">Your original always stays untouched</string>
+    <string name="restore_photo">Restore this photo</string>
+    <string name="result_title">Your restored photograph</string>
+    <string name="result_subtitle">Compare the original with your finished copy.</string>
+    <string name="original_label">Original</string>
+    <string name="restored_label">Restored</string>
+    <string name="restored_color_label">Restored · Color</string>
+    <string name="identity_passed">Identity preserved</string>
+    <string name="identity_passed_body">The restored face remains consistent with the original photograph.</string>
+    <string name="identity_unverified_title">Identity check unavailable</string>
+    <string name="identity_warning_title">Please review the face carefully</string>
+    <string name="retry">Try again</string>
+    <string name="error_title">The restoration stopped</string>
 
     <string name="status_uploading">Uploading…</string>
     <string name="status_repairing">Repairing scratches and tears…</string>
@@ -30,6 +51,7 @@
     <string name="paywall_not_now">Not now</string>
     <string name="paywall_subtitle">No watermarks. No ads. No subscription tricks.</string>
     <string name="free_tier_remaining">%1$d free restoration left</string>
+    <string name="free_tier_badge">%1$d free left</string>
     <string name="armenia_free">Free in Armenia. Always.</string>
 
     <string name="report_problem">Report a problem</string>

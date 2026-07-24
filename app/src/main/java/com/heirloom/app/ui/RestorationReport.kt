@@ -1,21 +1,26 @@
 package com.heirloom.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import com.heirloom.app.data.Stage
 import com.heirloom.app.data.StageResult
@@ -23,12 +28,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// ─── Restoration Report ─────────────────────────────────────────────────────
-// The conservator's certificate. Every restore already produces this data —
-// stages run, identity distance, colorization — the report is where it gets
-// handed to the owner of the photograph instead of thrown away.
-
-private class ReportRow(val label: String, val value: String, val warn: Boolean = false)
+private class ReportRow(
+    val label: String,
+    val value: String,
+    val warn: Boolean = false,
+)
 
 @Composable
 fun RestorationReport(
@@ -41,85 +45,122 @@ fun RestorationReport(
     modifier: Modifier = Modifier,
 ) {
     val identity = when {
-        identityWarning -> ReportRow("IDENTITY CHECK", "REVIEW ADVISED", warn = true)
-        identityUnverified -> ReportRow("IDENTITY CHECK", "UNVERIFIED")
+        identityWarning -> ReportRow("Identity check", "Review advised", warn = true)
+        identityUnverified -> ReportRow("Identity check", "Unavailable", warn = true)
         cosineSimilarity != null -> ReportRow(
-            "IDENTITY CHECK",
-            "%.2f MATCH ✓".format(cosineSimilarity),
+            "Identity check",
+            "${(cosineSimilarity * 100).coerceIn(0.0, 100.0).toInt()}% match",
         )
-        else -> ReportRow("IDENTITY CHECK", "—")
+        else -> ReportRow("Identity check", "Not reported", warn = true)
     }
 
     fun stageRow(label: String, stage: Stage): ReportRow = when (stageResults[stage]) {
-        StageResult.Completed -> ReportRow(label, "DONE ✓")
-        StageResult.NotNeeded -> ReportRow(label, "NOT NEEDED")
-        StageResult.Skipped -> ReportRow(label, "SKIPPED", warn = true)
-        null -> ReportRow(label, "NOT REPORTED", warn = true)
+        StageResult.Completed -> ReportRow(label, "Completed")
+        StageResult.NotNeeded -> ReportRow(label, "Not needed")
+        StageResult.Skipped -> ReportRow(label, "Skipped", warn = true)
+        null -> ReportRow(label, "Not reported", warn = true)
     }
 
     val rows = listOf(
-        stageRow("DAMAGE REPAIR", Stage.RepairingDamage),
-        stageRow("FACE RESTORATION", Stage.RestoringFaces),
-        stageRow("ENLARGEMENT", Stage.Upscaling),
+        stageRow("Damage repair", Stage.RepairingDamage),
+        stageRow("Face restoration", Stage.RestoringFaces),
+        stageRow("Fine-detail enlargement", Stage.Upscaling),
         identity,
         when {
-            wasColorized -> ReportRow("COLORIZATION", "DONE ✓")
+            wasColorized -> ReportRow("Colorization", "Completed")
             stageResults[Stage.Colorizing] == StageResult.NotNeeded ->
-                ReportRow("COLORIZATION", "NOT NEEDED")
-            else -> stageRow("COLORIZATION", Stage.Colorizing)
+                ReportRow("Colorization", "Not needed")
+            else -> stageRow("Colorization", Stage.Colorizing)
         },
     )
 
     val completedOn = remember {
-        SimpleDateFormat("MMM d yyyy", Locale.US).format(Date()).uppercase(Locale.US)
+        SimpleDateFormat("MMMM d, yyyy", Locale.US).format(Date())
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RectangleShape)
-            .padding(16.dp),
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Text(
-            text = "RESTORATION REPORT",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(12.dp))
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = "Restoration record",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = "A clear record of what Heirloom changed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 3.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = row.label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = row.value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (row.warn) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.primary,
-                )
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .background(
+                                    if (row.warn) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.secondary
+                                    },
+                                    CircleShape,
+                                ),
+                        )
+                        Spacer(Modifier.size(9.dp))
+                        Text(
+                            text = row.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = row.value,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (row.warn) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
+                }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(11.dp))
+            Text(
+                text = buildString {
+                    append("Completed $completedOn")
+                    elapsedSeconds?.let {
+                        append(" · ")
+                        append(
+                            if (it >= 60) {
+                                "${it / 60}m ${it % 60}s"
+                            } else {
+                                "${it}s"
+                            },
+                        )
+                    }
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = buildString {
-                append("COMPLETED $completedOn")
-                elapsedSeconds?.let { append(" · ${it}S") }
-            },
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

@@ -1,36 +1,86 @@
 package com.heirloom.app.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 
-private val HeirloomColorScheme = darkColorScheme(
-    primary = LavAmberText,
-    onPrimary = LavBackground,
-    primaryContainer = LavPanelSurface,
-    onPrimaryContainer = LavAmberText,
+private val LightArchiveScheme = lightColorScheme(
+    primary = ArchiveBrass,
+    onPrimary = ArchiveSurface,
+    primaryContainer = ArchiveBrassSoft,
+    onPrimaryContainer = ArchiveInk,
+    secondary = ArchiveSage,
+    onSecondary = ArchiveSurface,
+    secondaryContainer = ColorTokens.SageSoft,
+    onSecondaryContainer = ArchiveInk,
+    background = ArchivePaper,
+    onBackground = ArchiveInk,
+    surface = ArchiveSurface,
+    onSurface = ArchiveInk,
+    surfaceVariant = ArchiveSurfaceQuiet,
+    onSurfaceVariant = ArchiveMutedInk,
+    error = ArchiveBurgundy,
+    onError = ArchiveSurface,
+    errorContainer = ColorTokens.BurgundySoft,
+    onErrorContainer = ArchiveBurgundy,
+    outline = ArchiveRule,
+    outlineVariant = ColorTokens.RuleSoft,
+)
 
-    secondary = LavCrimsonRed,
-    onSecondary = LavBackground,
+private val DarkArchiveScheme = darkColorScheme(
+    primary = DarkArchiveBrass,
+    onPrimary = DarkArchivePaper,
+    primaryContainer = DarkArchiveBrassSoft,
+    onPrimaryContainer = DarkArchiveInk,
+    secondary = DarkArchiveSage,
+    onSecondary = DarkArchivePaper,
+    secondaryContainer = ColorTokens.DarkSageSoft,
+    onSecondaryContainer = DarkArchiveInk,
+    background = DarkArchivePaper,
+    onBackground = DarkArchiveInk,
+    surface = DarkArchiveSurface,
+    onSurface = DarkArchiveInk,
+    surfaceVariant = DarkArchiveSurfaceQuiet,
+    onSurfaceVariant = DarkArchiveMutedInk,
+    error = DarkArchiveBurgundy,
+    onError = DarkArchivePaper,
+    errorContainer = ColorTokens.DarkBurgundySoft,
+    onErrorContainer = DarkArchiveBurgundy,
+    outline = DarkArchiveRule,
+    outlineVariant = ColorTokens.DarkRuleSoft,
+)
 
-    background = LavBackground,
-    onBackground = LavAmberText,
-    surface = LavPanelSurface,
-    onSurface = LavAmberText,
-    surfaceVariant = LavPanelSurface,
-    onSurfaceVariant = LavMutedText,
+private object ColorTokens {
+    val SageSoft = androidx.compose.ui.graphics.Color(0xFFDDE6DC)
+    val BurgundySoft = androidx.compose.ui.graphics.Color(0xFFF2DEDA)
+    val RuleSoft = androidx.compose.ui.graphics.Color(0xFFE9E1D5)
+    val DarkSageSoft = androidx.compose.ui.graphics.Color(0xFF28352B)
+    val DarkBurgundySoft = androidx.compose.ui.graphics.Color(0xFF442723)
+    val DarkRuleSoft = androidx.compose.ui.graphics.Color(0xFF373229)
+}
 
-    error = LavCrimsonRed,
-    onError = LavBackground,
-
-    outline = LavBorder,
+private val HeirloomShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(30.dp),
 )
 
 @Composable
-fun HeirloomTheme(content: @Composable () -> Unit) {
+fun HeirloomTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
     MaterialTheme(
-        colorScheme = HeirloomColorScheme,
-        typography = LavTypography,
+        colorScheme = if (darkTheme) DarkArchiveScheme else LightArchiveScheme,
+        typography = HeirloomTypography,
+        shapes = HeirloomShapes,
         content = content,
     )
 }
