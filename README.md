@@ -1,8 +1,8 @@
 # Heirloom
 
 > [!IMPORTANT]
-> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc7.apk)
-> **Current review build: RC7 · Android version code 7**
+> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc6.apk)
+> **Current phone build: RC6 · Android version code 6**
 
 Android photo restoration for old and damaged family photographs.
 

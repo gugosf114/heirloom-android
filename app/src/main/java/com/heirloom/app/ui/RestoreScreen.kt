@@ -304,7 +304,7 @@ private fun ReportResultDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -351,7 +351,7 @@ private fun ReportResultDialog(
                     enabled = !submitting,
                     minLines = 2,
                     maxLines = 5,
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(14.dp),
                 )
             }
         },
@@ -385,7 +385,7 @@ private fun PaywallDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
         textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -454,7 +454,7 @@ private fun PackPurchaseButton(
     OutlinedButton(
         onClick = { product?.let(onBuy) },
         enabled = product != null,
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp),
