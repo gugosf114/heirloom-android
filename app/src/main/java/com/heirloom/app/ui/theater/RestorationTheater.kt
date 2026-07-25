@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -107,6 +106,12 @@ fun RestorationTheater(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
+            text = "RESTORATION STUDIO / LIVE",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
             text = "Restoring your photograph",
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.onBackground,
@@ -161,20 +166,19 @@ private fun RestorationPhotoBench(
     val brass = MaterialTheme.colorScheme.primary
 
     Card(
-        modifier = modifier.shadow(
-            elevation = 12.dp,
-            shape = RoundedCornerShape(24.dp),
-            ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-            spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-        ),
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline,
+        ),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(10.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(3.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .drawWithContent {
                     drawContent()
@@ -228,12 +232,12 @@ private fun RestorationStatusCard(
 
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -247,7 +251,7 @@ private fun RestorationStatusCard(
                     )
                     Spacer(Modifier.width(7.dp))
                     Text(
-                        text = "Restoration in progress",
+                        text = "RESTORATION IN PROGRESS",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

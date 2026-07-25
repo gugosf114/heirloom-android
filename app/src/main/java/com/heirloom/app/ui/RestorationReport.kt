@@ -80,11 +80,17 @@ fun RestorationReport(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = "ARCHIVAL RECORD",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = "Restoration record",
                 style = MaterialTheme.typography.titleLarge,

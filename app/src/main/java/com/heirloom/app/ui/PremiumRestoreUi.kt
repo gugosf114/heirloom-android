@@ -65,14 +65,20 @@ internal fun HeirloomBrandHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 18.dp),
+            .padding(top = 8.dp, bottom = 16.dp)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outline,
+                RoundedCornerShape(8.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_heirloom_seal),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(42.dp),
+            modifier = Modifier.size(38.dp),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -89,12 +95,16 @@ internal fun HeirloomBrandHeader(
         }
         creditsRemaining?.let {
             Surface(
-                shape = CircleShape,
+                shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                ),
             ) {
                 Text(
-                    text = stringResource(R.string.credits_badge, it),
+                    text = stringResource(R.string.credits_badge, it).uppercase(),
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                 )
@@ -172,7 +182,7 @@ private fun ArchivePhotoPlaceholder() {
                 .fillMaxWidth(0.68f)
                 .height(198.dp)
                 .rotate(-6f)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(6.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Box(
@@ -180,7 +190,7 @@ private fun ArchivePhotoPlaceholder() {
                 .fillMaxWidth(0.68f)
                 .height(198.dp)
                 .rotate(5f)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(6.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer),
         )
         Card(
@@ -188,30 +198,31 @@ private fun ArchivePhotoPlaceholder() {
                 .fillMaxWidth(0.72f)
                 .height(210.dp)
                 .shadow(
-                    elevation = 14.dp,
-                    shape = RoundedCornerShape(24.dp),
+                    elevation = 4.dp,
+                    shape = RoundedCornerShape(8.dp),
                     ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f),
                     spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f),
                 ),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(14.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     .border(
                         1.dp,
                         MaterialTheme.colorScheme.outline,
-                        RoundedCornerShape(14.dp),
+                        RoundedCornerShape(4.dp),
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Surface(
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(5.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.size(58.dp),
                     ) {
@@ -276,9 +287,13 @@ internal fun PremiumPickedBody(
         )
         Spacer(Modifier.height(16.dp))
         Surface(
-            shape = CircleShape,
+            shape = RoundedCornerShape(5.dp),
             color = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            border = BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f),
+            ),
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
@@ -320,20 +335,16 @@ private fun PremiumPhotoMount(
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier.shadow(
-            elevation = 12.dp,
-            shape = RoundedCornerShape(24.dp),
-            ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-            spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-        ),
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(10.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(3.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
@@ -490,7 +501,7 @@ private fun PremiumBeforeAfterTile(
             )
         }
         Card(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(6.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(
                 1.dp,
@@ -506,8 +517,8 @@ private fun PremiumBeforeAfterTile(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(5.dp)
-                    .clip(RoundedCornerShape(13.dp)),
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(3.dp)),
             )
         }
     }
@@ -541,9 +552,10 @@ private fun IdentityTrustCard(
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(6.dp),
         color = container,
         contentColor = content,
+        border = BorderStroke(1.dp, content.copy(alpha = 0.32f)),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -576,7 +588,7 @@ internal fun PremiumFailedBody(
         verticalArrangement = Arrangement.Center,
     ) {
         Surface(
-            shape = CircleShape,
+            shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.size(72.dp),
@@ -628,12 +640,12 @@ internal fun PremiumPrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 0.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
         modifier = modifier.height(56.dp),
     ) {
         Icon(
@@ -655,11 +667,12 @@ internal fun PremiumSecondaryButton(
 ) {
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
         modifier = modifier.height(56.dp),
     ) {
