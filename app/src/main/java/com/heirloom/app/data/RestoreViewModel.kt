@@ -17,6 +17,11 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
         RestorationSession.update(RestoreState.Picked(uri))
     }
 
+    fun setColorize(enabled: Boolean) {
+        val current = state.value as? RestoreState.Picked ?: return
+        RestorationSession.update(current.copy(colorize = enabled))
+    }
+
     fun reset() {
         RestorationSession.update(RestoreState.Idle)
     }
@@ -28,12 +33,17 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
             is RestoreState.Failed -> current.source ?: return
             else -> return
         }
+        val colorize = when (current) {
+            is RestoreState.Picked -> current.colorize
+            is RestoreState.Failed -> current.colorize
+            else -> false
+        }
         RestorationSession.update(RestoreState.Processing(source, Stage.Uploading))
         runCatching {
-            RestorationService.start(getApplication(), source)
+            RestorationService.start(getApplication(), source, colorize)
         }.onFailure {
             RestorationSession.update(
-                RestoreState.Failed(source, "The restoration could not start. Please try again."),
+                RestoreState.Failed(source, "The restoration could not start. Please try again.", colorize),
             )
         }
     }

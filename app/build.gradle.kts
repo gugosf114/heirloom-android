@@ -16,8 +16,8 @@ android {
         applicationId = "com.wimlabs.heirloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.0.0-rc6"
+        versionCode = 8
+        versionName = "1.0.0-rc8"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -49,6 +49,8 @@ android {
 
     buildTypes {
         debug {
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker-dev.gugosf.workers.dev\"")
             buildConfigField("String", "APP_SHARED_SECRET", "\"$appSharedSecret\"")
             buildConfigField(

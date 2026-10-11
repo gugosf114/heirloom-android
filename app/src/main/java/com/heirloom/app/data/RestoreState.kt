@@ -21,7 +21,7 @@ enum class StageResult {
 
 sealed interface RestoreState {
     data object Idle : RestoreState
-    data class Picked(val source: Uri) : RestoreState
+    data class Picked(val source: Uri, val colorize: Boolean = false) : RestoreState
     data class Processing(
         val source: Uri,
         val stage: Stage,
@@ -37,5 +37,5 @@ sealed interface RestoreState {
         val elapsedSeconds: Long? = null,
         val stageResults: Map<Stage, StageResult> = emptyMap(),
     ) : RestoreState
-    data class Failed(val source: Uri?, val message: String) : RestoreState
+    data class Failed(val source: Uri?, val message: String, val colorize: Boolean = false) : RestoreState
 }

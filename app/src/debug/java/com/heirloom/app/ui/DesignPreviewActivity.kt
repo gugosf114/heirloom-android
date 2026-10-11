@@ -1,6 +1,7 @@
 package com.heirloom.app.ui
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.CompositionLocalProvider
 import com.heirloom.app.data.Stage
 import com.heirloom.app.data.StageResult
 import com.heirloom.app.ui.theater.RestorationTheater
@@ -23,11 +27,21 @@ import com.heirloom.app.ui.theme.HeirloomTheme
  * release builds and cannot alter the production restoration workflow.
  */
 class DesignPreviewActivity : ComponentActivity() {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.hasExtra("state")) {
+            setIntent(intent)
+            recreate()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val state = intent.getStringExtra("state") ?: "selected"
         val image = intent.getStringExtra("image")
-            ?: "https://upload.wikimedia.org/wikipedia/commons/5/54/Lange-MigrantMother02.jpg"
+            ?: "android.resource://${packageName}/${com.heirloom.app.R.drawable.archive_portrait}"
+        val restored = intent.getStringExtra("restored")
+            ?: "android.resource://${packageName}/${com.heirloom.app.R.drawable.restored_sample}"
         val completed = mapOf(
             Stage.Uploading to StageResult.Completed,
             Stage.RepairingDamage to StageResult.Completed,
@@ -39,7 +53,9 @@ class DesignPreviewActivity : ComponentActivity() {
         )
 
         setContent {
-            HeirloomTheme {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, intent.getFloatExtra("fontScale", 1f))) {
+            HeirloomTheme(darkTheme = !intent.getBooleanExtra("light", false)) {
                 Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
                     Box(
                         modifier = Modifier
@@ -51,7 +67,7 @@ class DesignPreviewActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                .padding(horizontal = 24.dp, vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             HeirloomBrandHeader(creditsRemaining = 3)
@@ -61,6 +77,8 @@ class DesignPreviewActivity : ComponentActivity() {
                                     .fillMaxWidth(),
                             ) {
                                 when (state) {
+                                    "idle" -> PremiumIdleBody(onPick = {}, onScan = {})
+                                    "packs" -> { PremiumIdleBody(onPick = {}, onScan = {}); PaywallDialog(emptyList(), false, {}, {}, {}) }
                                     "processing" -> RestorationTheater(
                                         sourceUri = image,
                                         stage = Stage.RestoringFaces,
@@ -70,7 +88,7 @@ class DesignPreviewActivity : ComponentActivity() {
                                     )
                                     "done" -> PremiumDoneBody(
                                         sourceUri = image,
-                                        restoredUrl = image,
+                                        restoredUrl = restored,
                                         identityWarning = false,
                                         identityUnverified = false,
                                         wasColorized = false,
@@ -84,7 +102,7 @@ class DesignPreviewActivity : ComponentActivity() {
                                     )
                                     "warning" -> PremiumDoneBody(
                                         sourceUri = image,
-                                        restoredUrl = image,
+                                        restoredUrl = restored,
                                         identityWarning = true,
                                         identityUnverified = false,
                                         wasColorized = true,
@@ -111,6 +129,7 @@ class DesignPreviewActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
             }
         }
     }

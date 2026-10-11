@@ -2,6 +2,7 @@ package com.heirloom.app.ui
 
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
@@ -58,6 +59,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     val entitlement by billing.entitlement.collectAsStateWithLifecycle()
     var showPaywall by remember { mutableStateOf(false) }
     var packDetails by remember { mutableStateOf<List<ProductDetails>>(emptyList()) }
+    var packsLoading by remember { mutableStateOf(false) }
+    var packLoadAttempt by remember { mutableIntStateOf(0) }
     var reportTarget by remember { mutableStateOf<RestoreState.Done?>(null) }
     var reportSubmitting by remember { mutableStateOf(false) }
     var pendingLegacySave by remember { mutableStateOf<String?>(null) }
@@ -84,20 +87,32 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     }
 
     // Load localized Google Play prices lazily when the pack chooser opens.
-    LaunchedEffect(showPaywall) {
-        if (showPaywall && packDetails.isEmpty()) {
-            packDetails = billing.queryPackDetails()
+    LaunchedEffect(showPaywall, packLoadAttempt) {
+        if (showPaywall) {
+            packsLoading = true
+            try {
+                packDetails = billing.queryPackDetails()
+            } finally {
+                packsLoading = false
+            }
         }
     }
-    // A server-verified purchase closes the pack chooser by itself.
+    var creditsAtOpen by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(showPaywall) {
+        if (showPaywall) creditsAtOpen = (entitlement as? Entitlement.Credits)?.totalRemaining
+    }
     LaunchedEffect(entitlement) {
         val credits = entitlement as? Entitlement.Credits
-        if (showPaywall && credits != null && credits.totalRemaining > 0) {
+        if (showPaywall && credits != null && credits.totalRemaining > (creditsAtOpen ?: 0)) {
             showPaywall = false
         }
     }
 
-    // 1. Configure the ML Kit Document Scanner
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(viewModel::pickPhoto)
+    }
+
+    // Configure the print scanner separately from the gallery picker.
     val scannerOptions = GmsDocumentScannerOptions.Builder()
         .setGalleryImportAllowed(true)
         .setPageLimit(1)
@@ -133,12 +148,13 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxSize()
                     .widthIn(max = 640.dp)
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 HeirloomBrandHeader(
                     creditsRemaining =
                         (entitlement as? Entitlement.Credits)?.totalRemaining,
+                    onCredits = { showPaywall = true },
                 )
 
                 AnimatedContent(
@@ -152,7 +168,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                 ) { current ->
                     when (current) {
                         is RestoreState.Idle -> PremiumIdleBody(
-                            onPick = {
+                            onPick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            onScan = {
                                 activity?.let {
                                     scanner.getStartScanIntent(it)
                                         .addOnSuccessListener { intentSender ->
@@ -166,6 +183,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         )
                         is RestoreState.Picked -> PremiumPickedBody(
                             sourceUri = current.source.toString(),
+                            colorize = current.colorize,
+                            onColorize = viewModel::setColorize,
                             onRestore = {
                                 when (val access = entitlement) {
                                     is Entitlement.Credits -> {
@@ -254,6 +273,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     if (showPaywall) {
         PaywallDialog(
             details = packDetails,
+            loading = packsLoading,
+            onRetry = { packLoadAttempt++ },
             onBuy = { d -> activity?.let { billing.launchPurchase(it, d) } },
             onDismiss = { showPaywall = false },
         )
@@ -377,107 +398,69 @@ private fun ReportResultDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PaywallDialog(
+internal fun PaywallDialog(
     details: List<ProductDetails>,
+    loading: Boolean,
+    onRetry: () -> Unit,
     onBuy: (ProductDetails) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        textContentColor = MaterialTheme.colorScheme.onSurface,
-        icon = {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(56.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Outlined.AutoAwesome,
-                        contentDescription = null,
-                        modifier = Modifier.size(26.dp),
-                    )
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
+            GalleryEyebrow("More photos, more stories")
+            Text("Keep going.", style = MaterialTheme.typography.displayMedium,
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
+            Text("One restoration. One credit.\nBuy a pack whenever you need one.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(24.dp))
+            if (loading) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text("Getting prices from Google Play…", Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-        },
-        title = {
-            Text(
-                text = stringResource(R.string.paywall_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            ) {
-                Text(stringResource(R.string.paywall_body))
-                Spacer(Modifier.height(14.dp))
+            } else if (details.isEmpty()) {
+                Text("Google Play could not load the packs.", style = MaterialTheme.typography.bodyLarge)
+                TextButton(onClick = onRetry) { Text("Try again") }
+            } else {
                 ProductIds.PACKS.forEach { pack ->
                     val product = details.firstOrNull { it.productId == pack.productId }
-                    PackPurchaseButton(
-                        pack = pack,
-                        product = product,
-                        onBuy = onBuy,
-                    )
-                    Spacer(Modifier.height(10.dp))
+                    if (product != null) {
+                        PackPurchaseButton(pack, product, onBuy)
+                        Spacer(Modifier.height(10.dp))
+                    }
                 }
-                Text(
-                    stringResource(R.string.paywall_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.paywall_not_now)) }
-        },
-    )
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text("No subscription. No expiry. A failed restoration returns your credit.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 16.dp))
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Back to my photograph") }
+        }
+    }
 }
 
 @Composable
-private fun PackPurchaseButton(
-    pack: RestorationPack,
-    product: ProductDetails?,
-    onBuy: (ProductDetails) -> Unit,
-) {
-    val playPrice = product?.oneTimePurchaseOfferDetailsList
-        ?.firstOrNull()
-        ?.formattedPrice
-        ?: product?.oneTimePurchaseOfferDetails?.formattedPrice
-        ?: pack.expectedUsdPrice
-    OutlinedButton(
-        onClick = { product?.let(onBuy) },
-        enabled = product != null,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp),
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.Start,
-        ) {
-            Text(
-                text = stringResource(R.string.pack_restorations, pack.restorations),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            if (pack.restorations == 20) {
-                Text(
-                    text = stringResource(R.string.pack_most_popular),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+private fun PackPurchaseButton(pack: RestorationPack, product: ProductDetails, onBuy: (ProductDetails) -> Unit) {
+    val price = product.oneTimePurchaseOfferDetailsList?.firstOrNull()?.formattedPrice
+        ?: product.oneTimePurchaseOfferDetails?.formattedPrice ?: return
+    OutlinedButton(onClick = { onBuy(product) }, shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp)) {
+        Text(pack.restorations.toString(), style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(54.dp))
+        Column(Modifier.weight(1f)) {
+            Text("restorations", style = MaterialTheme.typography.titleSmall)
+            Text(when(pack.restorations) { 5 -> "A few favorites"; 20 -> "The family album"; else -> "The whole photo box" },
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(
-            text = if (product != null) playPrice else stringResource(R.string.pack_loading),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Text(price, style = MaterialTheme.typography.titleMedium)
     }
 }

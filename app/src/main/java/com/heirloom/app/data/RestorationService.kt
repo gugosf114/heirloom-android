@@ -63,19 +63,19 @@ class RestorationService : Service() {
 
         startForeground(NOTIFICATION_ID, progressNotification(Stage.Uploading))
         restorationJob = serviceScope.launch {
-            restore(source)
+            restore(source, intent?.getBooleanExtra(EXTRA_COLORIZE, false) ?: false)
             stopSelf(startId)
         }
         return START_NOT_STICKY
     }
 
-    private suspend fun restore(source: Uri) {
+    private suspend fun restore(source: Uri, colorize: Boolean) {
         val startedAt = System.currentTimeMillis()
         val stageResults = linkedMapOf<Stage, StageResult>()
         publish(RestoreState.Processing(source, Stage.Uploading), Stage.Uploading)
 
         try {
-            val result = RestoreApi.restore(applicationContext, source) { event ->
+            val result = RestoreApi.restore(applicationContext, source, colorize) { event ->
                 when (event) {
                     is PipelineEvent.StageStarted -> {
                         stageResults.putIfAbsent(Stage.Uploading, StageResult.Completed)
@@ -134,7 +134,7 @@ class RestorationService : Service() {
         } catch (error: Throwable) {
             Log.e("HeirloomRestore", "Restoration failed", error)
             val message = userMessage(error)
-            RestorationSession.update(RestoreState.Failed(source, message))
+            RestorationSession.update(RestoreState.Failed(source, message, colorize))
             finishNotification("Restoration failed", message)
         } finally {
             stopForeground(STOP_FOREGROUND_DETACH)
@@ -233,12 +233,14 @@ class RestorationService : Service() {
         private const val CHANNEL_ID = "heirloom_restoration"
         private const val NOTIFICATION_ID = 4101
         private const val EXTRA_SOURCE = "source"
+        private const val EXTRA_COLORIZE = "colorize"
 
-        fun start(context: Context, source: Uri) {
+        fun start(context: Context, source: Uri, colorize: Boolean = false) {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, RestorationService::class.java)
-                    .putExtra(EXTRA_SOURCE, source.toString()),
+                    .putExtra(EXTRA_SOURCE, source.toString())
+                    .putExtra(EXTRA_COLORIZE, colorize),
             )
         }
     }

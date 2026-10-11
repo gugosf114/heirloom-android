@@ -49,7 +49,7 @@ fun RestorationReport(
         identityUnverified -> ReportRow("Identity check", "Unavailable", warn = true)
         cosineSimilarity != null -> ReportRow(
             "Identity check",
-            "${(cosineSimilarity * 100).coerceIn(0.0, 100.0).toInt()}% match",
+            "Similar face",
         )
         else -> ReportRow("Identity check", "Not reported", warn = true)
     }
@@ -80,7 +80,7 @@ fun RestorationReport(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {

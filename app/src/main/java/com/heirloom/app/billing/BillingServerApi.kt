@@ -39,6 +39,7 @@ class BillingServerException(
 class BillingServerApi(
     private val clientId: String,
     private val attestor: PlayIntegrityAttestor,
+    private val developmentKey: String = BuildConfig.APP_SHARED_SECRET,
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -75,8 +76,8 @@ class BillingServerApi(
             val request = Request.Builder()
                 .url("${BuildConfig.WORKER_BASE_URL}$SYNC_PATH")
                 .apply {
-                    if (BuildConfig.APP_SHARED_SECRET.isNotEmpty()) {
-                        header("X-App-Key", BuildConfig.APP_SHARED_SECRET)
+                    if (BuildConfig.DEBUG && developmentKey.isNotEmpty()) {
+                        header("X-App-Key", developmentKey)
                     }
                 }
                 .post(body)

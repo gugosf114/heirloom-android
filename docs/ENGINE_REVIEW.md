@@ -1,0 +1,58 @@
+# Heirloom engine review
+
+The engine completed a real photograph through all five models. The app needed a new design and several repairs to how it prepares, checks, and presents photos. This review covers the Android app, credit gateway, and every restoration stage.
+
+## Real run before the repairs
+
+On October 11, 2026, the live Cloud Run service restored Dorothea Lange's public-domain *Migrant Mother* photograph. Total time was 126.5 seconds, including startup. Actual model processing took 92.3 seconds.
+
+| Step | Time | Result |
+| --- | ---: | --- |
+| Scratch and damage repair | 34.1 seconds | Completed |
+| Face restoration | 25.7 seconds | Completed |
+| Detail enlargement | 4.4 seconds | Completed |
+| Face comparison | 2.0 seconds | Completed; similarity score 0.895 |
+| Colorization | 26.1 seconds | Completed |
+
+The output was a real 855,420-byte JPEG. The image had visibly invented color, including reddish hair on one child. A similarity score is not a percentage of correctness or a promise that every face is unchanged.
+
+## Faults repaired
+
+1. **Color was added without a choice.** The app now preserves the original tones by default. The selected-photo screen has an **Add color** switch. Its label explains that AI guesses the colors. The choice travels through the app, foreground service, gateway, and model endpoint. Retry keeps the same choice.
+2. **The face check ran before the last edit.** The engine now compares the original with the finished photo after optional colorization.
+3. **A complete model failure could look like success.** Every repair step caught its own failure, then the engine could return the original as a finished result. The gateway would treat that as a completed, paid restoration. If all three repair models fail, the engine now sends a failure instead of a final result. The gateway's existing failure path returns the reserved credit.
+4. **A fallback could return only a face crop.** CodeFormer previously searched every PNG in its output tree when its full image was missing. It now requires the full image from `final_results`.
+5. **Large phone photos could turn sideways.** The app resized images without first applying their EXIF rotation. It now applies all eight EXIF orientation cases before writing the upload JPEG.
+6. **The photo button opened a print scanner.** Gallery selection now uses Android's photo picker. Scanning a printed photo has its own button.
+7. **Results were hard to judge.** Two small cropped tiles became one large, full-image comparison. The draggable divider and accessible slider expose both images without cropping them.
+8. **The app overstated the face score.** The interface no longer calls a cosine similarity a “percent match” or declares “Identity preserved.” It says which face check ran and asks the user to compare the result.
+9. **Credit packs could stay on “Loading” forever.** Loading and unavailable states are now distinct. The sheet has a retry action and shows only actual Google Play prices.
+10. **The pack chooser could close while browsing.** Existing credits no longer dismiss it immediately. An increase after a verified purchase closes it.
+
+## What the source still does
+
+- The face comparison checks the primary detected face. It does not verify every person in a group photograph.
+- Inputs are reduced to a maximum dimension of 1,024 pixels before model processing. Enlargement produces a larger image; it does not recover all original scan detail.
+- A single failed repair model can still be skipped if another repair model succeeds. The result details show skipped steps.
+- The in-memory restoration session survives activity recreation. It does not recover the session after Android kills the whole process. A completed image remains in the private cache until Android clears it.
+- A long restoration can exceed the Cloud Run request deadline. The app reports this as a failure. Model subprocess time limits can be longer than the service's 600-second deadline.
+- Google Play still verifies real purchases for the release app. The separately installed Studio build uses the existing development gateway and an access key supplied only to George's phone. The public APK contains no development key.
+
+## Checks completed during this work
+
+- A live photo passed every original model stage.
+- Six pipeline checks passed, including default tone preservation, checking the final image, failing when every repair fails, image orientation, and the existing scratch-repair fallback checks.
+- The gateway's six checks and TypeScript checks passed.
+- Android build, unit, and layout checks passed on the first complete design build. Final build and phone evidence are recorded with the finished change.
+
+## Source map
+
+- `app/src/main/java/com/heirloom/app/ui`: screens, comparison, report, saving, and sharing.
+- `app/src/main/java/com/heirloom/app/data`: image preparation, streaming, lifecycle, and errors.
+- `app/src/main/java/com/heirloom/app/billing`: Google Play, server balance, and access.
+- `worker/src/index.ts`: receipt sync, authentication, proxy, reports, and stream completion.
+- `worker/src/ledger.ts`: reservations, balances, completed work, and refunds.
+- `worker/src/googlePlay.ts`: purchase and app verification.
+- `pipeline/app/server.py`: model order, failures, temporary files, and streaming.
+- `pipeline/app/stages`: model invocations and output selection.
+- `pipeline/app/adaface.py`, `face_align.py`, and `grayscale.py`: face alignment, comparison, and color detection.

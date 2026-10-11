@@ -1,0 +1,30 @@
+name: Design build
+on:
+  workflow_dispatch:
+  push:
+    branches: ['redesign/**']
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Load stable Studio signing key
+        env:
+          STUDIO_SIGNING_KEY: ${{ secrets.HEIRLOOM_STUDIO_KEYSTORE }}
+        run: |
+          mkdir -p ~/.android
+          printf '%s' "$STUDIO_SIGNING_KEY" | base64 --decode > ~/.android/debug.keystore
+          chmod 600 ~/.android/debug.keystore
+      - name: Build Android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Heirloom-studio-preview
+          path: app/build/outputs/apk/debug/*.apk
+      - name: Check Android
+        run: ./gradlew testDebugUnitTest lintDebug --no-daemon
