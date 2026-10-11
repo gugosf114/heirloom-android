@@ -27,7 +27,7 @@ class DesignPreviewActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val state = intent.getStringExtra("state") ?: "selected"
         val image = intent.getStringExtra("image")
-            ?: "https://upload.wikimedia.org/wikipedia/commons/5/54/Lange-MigrantMother02.jpg"
+            ?: "android.resource://${packageName}/${com.heirloom.app.R.drawable.archive_portrait}"
         val completed = mapOf(
             Stage.Uploading to StageResult.Completed,
             Stage.RepairingDamage to StageResult.Completed,
@@ -51,7 +51,7 @@ class DesignPreviewActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                .padding(horizontal = 24.dp, vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             HeirloomBrandHeader(creditsRemaining = 3)
@@ -61,6 +61,7 @@ class DesignPreviewActivity : ComponentActivity() {
                                     .fillMaxWidth(),
                             ) {
                                 when (state) {
+                                    "idle" -> PremiumIdleBody(onPick = {}, onScan = {})
                                     "processing" -> RestorationTheater(
                                         sourceUri = image,
                                         stage = Stage.RestoringFaces,

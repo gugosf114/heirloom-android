@@ -1,57 +1,41 @@
 package com.heirloom.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Save
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.heirloom.app.R
 import com.heirloom.app.data.Stage
@@ -59,614 +43,230 @@ import com.heirloom.app.data.StageResult
 
 @Composable
 internal fun HeirloomBrandHeader(
-    creditsRemaining: Int?,
-    modifier: Modifier = Modifier,
+    creditsRemaining: Int?, modifier: Modifier = Modifier, onCredits: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 18.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_heirloom_seal),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(42.dp),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = stringResource(R.string.tagline),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        creditsRemaining?.let {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ) {
-                Text(
-                    text = stringResource(R.string.credits_badge, it),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                )
+    Column(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 17.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_heirloom_logo), null,
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+            Text("heirloom", style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f).padding(start = 10.dp), letterSpacing = (-0.6).sp)
+            if (creditsRemaining != null) {
+                Surface(onClick = { onCredits?.invoke() }, enabled = onCredits != null,
+                    shape = RoundedCornerShape(6.dp), color = Color.Transparent,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                    Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("$creditsRemaining", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text("  left", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                Text("PHOTO\nRESTORATION", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
 @Composable
-internal fun PremiumIdleBody(onPick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = stringResource(R.string.idle_eyebrow).uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.idle_title),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = stringResource(R.string.idle_body),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-        Spacer(Modifier.height(28.dp))
-        ArchivePhotoPlaceholder()
-        Spacer(Modifier.height(28.dp))
-        PremiumPrimaryButton(
-            label = stringResource(R.string.pick_photo),
-            onClick = onPick,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Outlined.Lock,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(7.dp))
-            Text(
-                text = stringResource(R.string.idle_trust),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-    }
+internal fun GalleryEyebrow(text: String, modifier: Modifier = Modifier) {
+    Text(text.uppercase(), modifier, style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
-private fun ArchivePhotoPlaceholder() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(238.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.68f)
-                .height(198.dp)
-                .rotate(-6f)
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.68f)
-                .height(198.dp)
-                .rotate(5f)
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-        )
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.72f)
-                .height(210.dp)
-                .shadow(
-                    elevation = 14.dp,
-                    shape = RoundedCornerShape(24.dp),
-                    ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f),
-                    spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f),
-                ),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(14.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.outline,
-                        RoundedCornerShape(14.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(58.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.Image,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp),
-                            )
-                        }
+internal fun PremiumIdleBody(onPick: () -> Unit, onScan: (() -> Unit)? = null) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val photoHeight = (maxHeight * 0.39f).coerceIn(210.dp, 340.dp)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 16.dp)) {
+            GalleryEyebrow("A little care. A little time travel.")
+            Text("A second life\nfor old photos.", style = MaterialTheme.typography.displayLarge,
+                modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
+            Box(Modifier.fillMaxWidth().height(photoHeight)) {
+                // A real public-domain archive photograph, not a fabricated restoration result.
+                Box(Modifier.fillMaxSize().padding(start = 26.dp, top = 6.dp, end = 10.dp, bottom = 12.dp)
+                    .rotate(3f).background(MaterialTheme.colorScheme.primary.copy(alpha = .14f)))
+                Row(Modifier.fillMaxSize().padding(end = 24.dp, bottom = 4.dp)
+                    .shadow(12.dp, RoundedCornerShape(2.dp)).background(Color(0xFFECE4D6)).padding(9.dp)) {
+                    Image(painterResource(R.drawable.archive_portrait),
+                        "Migrant Mother, a 1936 photograph by Dorothea Lange",
+                        modifier = Modifier.weight(1f).fillMaxHeight(), contentScale = ContentScale.Crop)
+                    Column(Modifier.width(30.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween) {
+                        Text("01", color = Color(0xFF43514C), style = MaterialTheme.typography.labelSmall)
+                        Icon(Icons.Outlined.FavoriteBorder, null, tint = Color(0xFF67756C), modifier = Modifier.size(16.dp))
                     }
-                    Spacer(Modifier.height(13.dp))
-                    Text(
-                        text = stringResource(R.string.photo_placeholder),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.photo_placeholder_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
                 }
             }
-        }
-    }
-}
-
-@Composable
-internal fun PremiumPickedBody(
-    sourceUri: String,
-    onRestore: () -> Unit,
-    onReset: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.picked_title),
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = stringResource(R.string.picked_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(18.dp))
-        PremiumPhotoMount(
-            image = sourceUri,
-            contentDescription = "Selected photo",
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-        )
-        Spacer(Modifier.height(16.dp))
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp),
-                )
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    text = stringResource(R.string.original_untouched),
-                    style = MaterialTheme.typography.labelMedium,
-                )
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 20.dp), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Repair the wear.\nKeep what matters.", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Outlined.AutoFixHigh, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            }
+            PremiumPrimaryButton("Choose a photograph", onPick, Modifier.fillMaxWidth())
+            if (onScan != null) {
+                TextButton(onClick = onScan, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Icon(Icons.Outlined.DocumentScanner, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp)); Text("Scan a printed photo")
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Lock, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("  Private by design · No subscription", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Spacer(Modifier.height(16.dp))
-        PremiumPrimaryButton(
-            label = stringResource(R.string.restore_photo),
-            onClick = onRestore,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        TextButton(
-            onClick = onReset,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.heightIn(min = 48.dp),
-        ) {
-            Text(stringResource(R.string.start_over))
-        }
-        Spacer(Modifier.height(4.dp))
     }
 }
 
 @Composable
-private fun PremiumPhotoMount(
-    image: String,
-    contentDescription: String,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.shadow(
-            elevation = 12.dp,
-            shape = RoundedCornerShape(24.dp),
-            ambientColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-            spotColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
-        ),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(10.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            AsyncImage(
-                model = image,
-                contentDescription = contentDescription,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+internal fun PremiumPickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 12.dp)) {
+        GalleryEyebrow("01 / Your photograph")
+        Text("Let's bring it back.", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 9.dp, bottom = 20.dp))
+        PremiumPhotoMount(sourceUri, "Selected photograph", Modifier.fillMaxWidth().aspectRatio(.92f))
+        Text("Scratches repaired. Faces refined.\nThe original stays yours, untouched.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 20.dp))
+        PremiumPrimaryButton("Restore this photograph", onRestore, Modifier.fillMaxWidth())
+        TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Choose another photo") }
+    }
+}
+
+@Composable
+internal fun PremiumPhotoMount(image: String, contentDescription: String, modifier: Modifier = Modifier) {
+    Box(modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)).padding(10.dp)) {
+        AsyncImage(model = image, contentDescription = contentDescription,
+            contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
     }
 }
 
 @Composable
 internal fun PremiumDoneBody(
-    sourceUri: String,
-    restoredUrl: String,
-    identityWarning: Boolean,
-    identityUnverified: Boolean,
-    wasColorized: Boolean,
-    cosineSimilarity: Double?,
-    elapsedSeconds: Long?,
-    stageResults: Map<Stage, StageResult>,
-    onSave: () -> Unit,
-    onShare: () -> Unit,
-    onReport: () -> Unit,
-    onReset: () -> Unit,
+    sourceUri: String, restoredUrl: String, identityWarning: Boolean, identityUnverified: Boolean,
+    wasColorized: Boolean, cosineSimilarity: Double?, elapsedSeconds: Long?, stageResults: Map<Stage, StageResult>,
+    onSave: () -> Unit, onShare: () -> Unit, onReport: () -> Unit, onReset: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = stringResource(R.string.result_title),
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(5.dp))
-        Text(
-            text = stringResource(R.string.result_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(20.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            PremiumBeforeAfterTile(
-                label = stringResource(R.string.original_label),
-                image = sourceUri,
-                modifier = Modifier.weight(1f),
-            )
-            PremiumBeforeAfterTile(
-                label = if (wasColorized) {
-                    stringResource(R.string.restored_color_label)
-                } else {
-                    stringResource(R.string.restored_label)
-                },
-                image = restoredUrl,
-                modifier = Modifier.weight(1f),
-                accent = true,
-            )
+    var showDetails by rememberSaveable { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 16.dp)) {
+        GalleryEyebrow("03 / A new chapter")
+        Text("Worth keeping.", style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(top = 8.dp, bottom = 5.dp))
+        Text("Slide across to see what changed.", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 18.dp))
+        PhotoComparison(sourceUri, restoredUrl)
+        IdentityTrustCard(identityWarning, identityUnverified)
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PremiumPrimaryButton("Save photo", onSave, Modifier.weight(1f), Icons.Outlined.FileDownload)
+            PremiumSecondaryButton("Share", onShare, Modifier.weight(.7f), Icons.Outlined.Share)
         }
-        Spacer(Modifier.height(16.dp))
-        IdentityTrustCard(
-            identityWarning = identityWarning,
-            identityUnverified = identityUnverified,
-        )
-        Spacer(Modifier.height(14.dp))
-        RestorationReport(
-            cosineSimilarity = cosineSimilarity,
-            identityWarning = identityWarning,
-            identityUnverified = identityUnverified,
-            wasColorized = wasColorized,
-            elapsedSeconds = elapsedSeconds,
-            stageResults = stageResults,
-        )
-        Spacer(Modifier.height(18.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            PremiumPrimaryButton(
-                label = stringResource(R.string.save),
-                onClick = onSave,
-                icon = Icons.Outlined.Save,
-                modifier = Modifier.weight(1f),
-            )
-            PremiumSecondaryButton(
-                label = stringResource(R.string.share),
-                onClick = onShare,
-                icon = Icons.Outlined.Share,
-                modifier = Modifier.weight(1f),
-            )
+        TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Restore another photograph") }
+        HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        TextButton(onClick = { showDetails = !showDetails }, modifier = Modifier.fillMaxWidth()) {
+            Text("Restoration details", modifier = Modifier.weight(1f))
+            Icon(if (showDetails) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null)
         }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(
-                onClick = onReport,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Icon(Icons.Outlined.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.report_problem))
-            }
-            TextButton(
-                onClick = onReset,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) {
-                Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.start_over))
-            }
+        if (showDetails) {
+            RestorationReport(cosineSimilarity, identityWarning, identityUnverified, wasColorized, elapsedSeconds, stageResults)
         }
-        Spacer(Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun PremiumBeforeAfterTile(
-    label: String,
-    image: String,
-    modifier: Modifier = Modifier,
-    accent: Boolean = false,
-) {
-    Column(modifier = modifier) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 4.dp, bottom = 7.dp),
-        ) {
-            if (accent) {
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .background(MaterialTheme.colorScheme.secondary, CircleShape),
-                )
-                Spacer(Modifier.width(6.dp))
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (accent) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-        Card(
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(
-                1.dp,
-                if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.84f),
-        ) {
-            AsyncImage(
-                model = image,
-                contentDescription = label,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(5.dp)
-                    .clip(RoundedCornerShape(13.dp)),
-            )
+        TextButton(onClick = onReport, modifier = Modifier.fillMaxWidth()) {
+            Text("Report a problem", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun IdentityTrustCard(
-    identityWarning: Boolean,
-    identityUnverified: Boolean,
-) {
+private fun PhotoComparison(original: String, restored: String) {
+    var split by rememberSaveable(original, restored) { mutableFloatStateOf(.5f) }
+    Column {
+        Box(Modifier.fillMaxWidth().aspectRatio(.88f).clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .pointerInput(original, restored) {
+                detectDragGestures(onDragStart = { split = (it.x / size.width).coerceIn(0f, 1f) }) { change, _ ->
+                    change.consume(); split = (change.position.x / size.width).coerceIn(0f, 1f)
+                }
+            }) {
+            AsyncImage(restored, "Restored photograph", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            AsyncImage(original, "Original photograph", Modifier.fillMaxSize().drawWithContent {
+                clipRect(right = size.width * split) { drawContent() }
+            }, contentScale = ContentScale.Fit)
+            Canvas(Modifier.fillMaxSize()) {
+                val x = size.width * split
+                drawLine(Color.White, Offset(x, 0f), Offset(x, size.height), 2.dp.toPx())
+                drawCircle(Color.White, 17.dp.toPx(), Offset(x, size.height * .55f))
+                drawLine(Color(0xFF17272B), Offset(x - 5.dp.toPx(), size.height * .55f - 5.dp.toPx()),
+                    Offset(x - 5.dp.toPx(), size.height * .55f + 5.dp.toPx()), 1.5.dp.toPx())
+                drawLine(Color(0xFF17272B), Offset(x + 5.dp.toPx(), size.height * .55f - 5.dp.toPx()),
+                    Offset(x + 5.dp.toPx(), size.height * .55f + 5.dp.toPx()), 1.5.dp.toPx())
+            }
+            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                PhotoLabel("ORIGINAL"); PhotoLabel("RESTORED")
+            }
+        }
+        Slider(value = split, onValueChange = { split = it }, modifier = Modifier.fillMaxWidth()
+            .semantics { contentDescription = "Compare original and restored photograph" })
+    }
+}
+
+@Composable
+private fun PhotoLabel(text: String) {
+    Text(text, Modifier.background(Color(0xCC102024), RoundedCornerShape(3.dp)).padding(horizontal = 8.dp, vertical = 5.dp),
+        style = MaterialTheme.typography.labelSmall, color = Color(0xFFF5F0E8))
+}
+
+@Composable
+private fun IdentityTrustCard(identityWarning: Boolean, identityUnverified: Boolean) {
     val warning = identityWarning || identityUnverified
-    val container = if (warning) {
-        MaterialTheme.colorScheme.errorContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer
-    }
-    val content = if (warning) {
-        MaterialTheme.colorScheme.onErrorContainer
-    } else {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    }
-    val title = when {
-        identityWarning -> stringResource(R.string.identity_warning_title)
-        identityUnverified -> stringResource(R.string.identity_unverified_title)
-        else -> stringResource(R.string.identity_passed)
-    }
-    val body = when {
-        identityWarning -> stringResource(R.string.warning_identity_drift)
-        identityUnverified -> stringResource(R.string.identity_unverified)
-        else -> stringResource(R.string.identity_passed_body)
-    }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = container,
-        contentColor = content,
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(
-                imageVector = if (warning) Icons.Outlined.WarningAmber else Icons.Outlined.CheckCircle,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(3.dp))
-                Text(text = body, style = MaterialTheme.typography.bodySmall)
-            }
+    Row(Modifier.fillMaxWidth().background(
+        if (warning) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface,
+        RoundedCornerShape(8.dp)).padding(14.dp), verticalAlignment = Alignment.Top) {
+        Icon(if (warning) Icons.Outlined.Info else Icons.Outlined.CheckCircle, null, Modifier.size(20.dp),
+            tint = if (warning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(when { identityWarning -> "Take a close look at the face"
+                identityUnverified -> "The face check was unavailable"
+                else -> "Face check passed" }, style = MaterialTheme.typography.titleSmall)
+            Text(when { identityWarning -> "Some features may have changed. Compare with the original before saving."
+                identityUnverified -> "Compare the face with your original before saving."
+                else -> "The restored face is similar to the original. Give it your own final look." },
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 3.dp))
         }
     }
 }
 
 @Composable
-internal fun PremiumFailedBody(
-    message: String,
-    onRetry: () -> Unit,
-    onReset: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.size(72.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Outlined.WarningAmber,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(20.dp))
-        Text(
-            text = stringResource(R.string.error_title),
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(28.dp))
-        PremiumPrimaryButton(
-            label = stringResource(R.string.retry),
-            onClick = onRetry,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        TextButton(
-            onClick = onReset,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.heightIn(min = 48.dp),
-        ) {
-            Text(stringResource(R.string.start_over))
-        }
+internal fun PremiumFailedBody(message: String, onRetry: () -> Unit, onReset: () -> Unit) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 48.dp, bottom = 24.dp)) {
+        GalleryEyebrow("Restoration paused")
+        Icon(Icons.Outlined.WifiOff, null, Modifier.padding(vertical = 30.dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
+        Text("Let's try that\nonce more.", style = MaterialTheme.typography.displayMedium)
+        Text(message, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 16.dp, bottom = 28.dp))
+        PremiumPrimaryButton("Try again", onRetry, Modifier.fillMaxWidth(), Icons.Outlined.Refresh)
+        TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Choose another photo") }
     }
 }
 
 @Composable
-internal fun PremiumPrimaryButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 0.dp),
-        modifier = modifier.height(56.dp),
-    ) {
-        Icon(
-            imageVector = icon ?: Icons.Outlined.AutoAwesome,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(Modifier.width(9.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+internal fun PremiumPrimaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    Button(onClick, modifier.heightIn(min = 58.dp), shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)) {
+        if (icon != null) { Icon(icon, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)) }
+        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        if (icon == null) Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(21.dp))
     }
 }
 
 @Composable
-internal fun PremiumSecondaryButton(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-        modifier = modifier.height(56.dp),
-    ) {
-        icon?.let {
-            Icon(it, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(9.dp))
-        }
-        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+internal fun PremiumSecondaryButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    OutlinedButton(onClick, modifier.heightIn(min = 58.dp), shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 16.dp)) {
+        if (icon != null) { Icon(icon, null, Modifier.size(19.dp)); Spacer(Modifier.width(7.dp)) }
+        Text(label, style = MaterialTheme.typography.labelLarge)
     }
 }

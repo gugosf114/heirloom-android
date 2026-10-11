@@ -2,6 +2,7 @@ package com.heirloom.app.ui
 
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
@@ -89,15 +90,22 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
             packDetails = billing.queryPackDetails()
         }
     }
-    // A server-verified purchase closes the pack chooser by itself.
+    var creditsAtOpen by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(showPaywall) {
+        if (showPaywall) creditsAtOpen = (entitlement as? Entitlement.Credits)?.totalRemaining
+    }
     LaunchedEffect(entitlement) {
         val credits = entitlement as? Entitlement.Credits
-        if (showPaywall && credits != null && credits.totalRemaining > 0) {
+        if (showPaywall && credits != null && credits.totalRemaining > (creditsAtOpen ?: 0)) {
             showPaywall = false
         }
     }
 
-    // 1. Configure the ML Kit Document Scanner
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(viewModel::pickPhoto)
+    }
+
+    // Configure the print scanner separately from the gallery picker.
     val scannerOptions = GmsDocumentScannerOptions.Builder()
         .setGalleryImportAllowed(true)
         .setPageLimit(1)
@@ -133,12 +141,13 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxSize()
                     .widthIn(max = 640.dp)
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 HeirloomBrandHeader(
                     creditsRemaining =
                         (entitlement as? Entitlement.Credits)?.totalRemaining,
+                    onCredits = { showPaywall = true },
                 )
 
                 AnimatedContent(
@@ -152,7 +161,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                 ) { current ->
                     when (current) {
                         is RestoreState.Idle -> PremiumIdleBody(
-                            onPick = {
+                            onPick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            onScan = {
                                 activity?.let {
                                     scanner.getStartScanIntent(it)
                                         .addOnSuccessListener { intentSender ->
@@ -469,7 +479,7 @@ private fun PackPurchaseButton(
             )
             if (pack.restorations == 20) {
                 Text(
-                    text = stringResource(R.string.pack_most_popular),
+                    text = "For the family album",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
