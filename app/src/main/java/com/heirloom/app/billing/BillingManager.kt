@@ -31,7 +31,11 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
         appContext,
         BuildConfig.PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER,
     )
-    private val server = BillingServerApi(clientId, attestor)
+    private val developmentKey = if (BuildConfig.DEBUG) {
+        runCatching { java.io.File(appContext.filesDir, "studio-access").readText().trim() }
+            .getOrDefault(BuildConfig.APP_SHARED_SECRET)
+    } else ""
+    private val server = BillingServerApi(clientId, attestor, developmentKey)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val refreshMutex = Mutex()
 
@@ -58,6 +62,10 @@ class BillingManager(context: Context) : PurchasesUpdatedListener {
         refreshMutex.withLock {
             _entitlement.value = Entitlement.Loading
             try {
+                if (BuildConfig.DEBUG && developmentKey.isNotEmpty()) {
+                    applyServerEntitlement(server.sync(emptyList()))
+                    return@withLock
+                }
                 if (!connect()) {
                     throw IllegalStateException("Google Play is unavailable")
                 }

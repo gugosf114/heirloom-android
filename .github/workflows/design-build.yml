@@ -13,9 +13,15 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build and check Android
-        run: ./gradlew assembleDebug testDebugUnitTest lintDebug --no-daemon
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: heirloom-studio-signing-v1
+      - name: Build Android
+        run: ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: Heirloom-studio-preview
           path: app/build/outputs/apk/debug/*.apk
+      - name: Check Android
+        run: ./gradlew testDebugUnitTest lintDebug --no-daemon

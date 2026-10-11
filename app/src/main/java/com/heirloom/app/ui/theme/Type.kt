@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+
 package com.heirloom.app.ui.theme
 
 import androidx.compose.material3.Typography
@@ -5,11 +7,16 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.unit.sp
 import com.heirloom.app.R
 
-val Editorial = FontFamily(Font(R.font.cormorant))
-val StudioSans = FontFamily(Font(R.font.manrope))
+val Editorial = FontFamily(Font(R.font.cormorant, variationSettings = FontVariation.Settings(FontVariation.weight(400))))
+val StudioSans = FontFamily(
+    Font(R.font.manrope, weight = FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.manrope, weight = FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.manrope, weight = FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+)
 private fun editorial(size: Int, height: Int) = TextStyle(
     fontFamily = Editorial, fontWeight = FontWeight.Normal,
     fontSize = size.sp, lineHeight = height.sp, letterSpacing = (-0.6).sp,

@@ -13,6 +13,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.CompositionLocalProvider
 import com.heirloom.app.data.Stage
 import com.heirloom.app.data.StageResult
 import com.heirloom.app.ui.theater.RestorationTheater
@@ -41,6 +44,8 @@ class DesignPreviewActivity : ComponentActivity() {
         )
 
         setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, intent.getFloatExtra("fontScale", 1f))) {
             HeirloomTheme(darkTheme = !intent.getBooleanExtra("light", false)) {
                 Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
                     Box(
@@ -64,6 +69,7 @@ class DesignPreviewActivity : ComponentActivity() {
                             ) {
                                 when (state) {
                                     "idle" -> PremiumIdleBody(onPick = {}, onScan = {})
+                                    "packs" -> { PremiumIdleBody(onPick = {}, onScan = {}); PaywallDialog(emptyList(), false, {}, {}, {}) }
                                     "processing" -> RestorationTheater(
                                         sourceUri = image,
                                         stage = Stage.RestoringFaces,
@@ -114,6 +120,7 @@ class DesignPreviewActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
             }
         }
     }
