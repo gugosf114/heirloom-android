@@ -1,6 +1,7 @@
 package com.heirloom.app.ui
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,14 @@ import com.heirloom.app.ui.theme.HeirloomTheme
  * release builds and cannot alter the production restoration workflow.
  */
 class DesignPreviewActivity : ComponentActivity() {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.hasExtra("state")) {
+            setIntent(intent)
+            recreate()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val state = intent.getStringExtra("state") ?: "selected"

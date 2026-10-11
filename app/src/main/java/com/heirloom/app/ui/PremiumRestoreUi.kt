@@ -187,6 +187,7 @@ internal fun PremiumDoneBody(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PhotoComparison(original: String, restored: String) {
     var split by rememberSaveable(original, restored) { mutableFloatStateOf(.5f) }
@@ -206,17 +207,22 @@ private fun PhotoComparison(original: String, restored: String) {
                 val x = size.width * split
                 drawLine(Color.White, Offset(x, 0f), Offset(x, size.height), 2.dp.toPx())
                 drawCircle(Color.White, 17.dp.toPx(), Offset(x, size.height * .55f))
-                drawLine(Color(0xFF17272B), Offset(x - 5.dp.toPx(), size.height * .55f - 5.dp.toPx()),
-                    Offset(x - 5.dp.toPx(), size.height * .55f + 5.dp.toPx()), 1.5.dp.toPx())
-                drawLine(Color(0xFF17272B), Offset(x + 5.dp.toPx(), size.height * .55f - 5.dp.toPx()),
-                    Offset(x + 5.dp.toPx(), size.height * .55f + 5.dp.toPx()), 1.5.dp.toPx())
+                val y = size.height * .55f
+                for (direction in listOf(-1f, 1f)) {
+                    val tip = x + direction * 8.dp.toPx()
+                    val base = x + direction * 4.dp.toPx()
+                    drawLine(Color(0xFF17272B), Offset(base, y - 4.dp.toPx()), Offset(tip, y), 1.5.dp.toPx())
+                    drawLine(Color(0xFF17272B), Offset(base, y + 4.dp.toPx()), Offset(tip, y), 1.5.dp.toPx())
+                }
             }
             Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 PhotoLabel("ORIGINAL"); PhotoLabel("RESTORED")
             }
         }
         Slider(value = split, onValueChange = { split = it }, modifier = Modifier.fillMaxWidth()
-            .semantics { contentDescription = "Compare original and restored photograph" })
+            .semantics { contentDescription = "Compare original and restored photograph" },
+            thumb = { Box(Modifier.size(16.dp).background(MaterialTheme.colorScheme.primary, CircleShape)) },
+            track = { slider -> SliderDefaults.Track(sliderState = slider, modifier = Modifier.height(3.dp)) })
     }
 }
 
