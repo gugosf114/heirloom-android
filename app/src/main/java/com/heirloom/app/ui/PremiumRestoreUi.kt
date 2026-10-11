@@ -191,7 +191,7 @@ private fun PhotoComparison(original: String, restored: String) {
             }) {
             AsyncImage(restored, "Restored photograph", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             AsyncImage(original, "Original photograph", Modifier.fillMaxSize().drawWithContent {
-                clipRect(right = size.width * split) { drawContent() }
+                clipRect(right = size.width * split) { this@drawWithContent.drawContent() }
             }, contentScale = ContentScale.Fit)
             Canvas(Modifier.fillMaxSize()) {
                 val x = size.width * split
@@ -241,8 +241,8 @@ private fun IdentityTrustCard(identityWarning: Boolean, identityUnverified: Bool
 @Composable
 internal fun PremiumFailedBody(message: String, onRetry: () -> Unit, onReset: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 48.dp, bottom = 24.dp)) {
-        GalleryEyebrow("Restoration paused")
-        Icon(Icons.Outlined.WifiOff, null, Modifier.padding(vertical = 30.dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
+        GalleryEyebrow("Restoration stopped")
+        Icon(Icons.Outlined.ImageNotSupported, null, Modifier.padding(vertical = 30.dp).size(44.dp), tint = MaterialTheme.colorScheme.primary)
         Text("Let's try that\nonce more.", style = MaterialTheme.typography.displayMedium)
         Text(message, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 16.dp, bottom = 28.dp))
