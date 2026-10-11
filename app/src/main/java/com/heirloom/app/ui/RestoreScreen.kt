@@ -183,6 +183,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                         )
                         is RestoreState.Picked -> PremiumPickedBody(
                             sourceUri = current.source.toString(),
+                            colorize = current.colorize,
+                            onColorize = viewModel::setColorize,
                             onRestore = {
                                 when (val access = entitlement) {
                                     is Entitlement.Credits -> {

@@ -29,7 +29,7 @@ from typing import Any, Dict, Generator, Optional
 
 import cv2
 from PIL import Image, ImageOps
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from .adaface import GATE
@@ -85,7 +85,7 @@ def _normalize_input(image_bytes: bytes, output_path: str) -> None:
         image.save(output_path, format="JPEG", quality=95)
 
 
-def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any], None, None]:
+def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False) -> Generator[Dict[str, Any], None, None]:
     start = time.monotonic()
     def t() -> int:
         return int((time.monotonic() - start) * 1000)
@@ -105,12 +105,14 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     # event and the previous image passes through — best-effort, a single bad
     # model never kills the whole restore.
     cur = orig_path
+    successful_repairs = []
 
     # Stage 1: BOPB (scratch/tear repair) — folder in, folder out.
     yield {"kind": "stage_start", "stage": "bopb", "t_ms": t()}
     s = time.monotonic()
     try:
         cur = bopb.run(in_dir, os.path.join(workdir, "bopb"))
+        successful_repairs.append("bopb")
         yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
     except Exception as e:
@@ -124,6 +126,7 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
     s = time.monotonic()
     try:
         cur = codeformer.run(cur, os.path.join(workdir, "cf"), fidelity=fidelity, upscale=2)
+        successful_repairs.append("codeformer")
         yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000), "fidelity": fidelity}}
     except Exception as e:
@@ -139,7 +142,10 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
         restored_bgr = esrgan.run(cv2.imread(cur, cv2.IMREAD_COLOR), outscale=2)
         restored_path = os.path.join(workdir, "restored.png")
         cv2.imwrite(restored_path, restored_bgr)
+        if not os.path.isfile(restored_path):
+            raise RuntimeError("upscaling produced no image")
         cur = restored_path
+        successful_repairs.append("esrgan")
         yield {"kind": "stage_done", "stage": "esrgan", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
     except Exception as e:
@@ -148,7 +154,37 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
                          "skipped": True, "error": "stage unavailable"}}
 
-    # Stage 4: AdaFace identity gate (local: original vs current restored).
+    if not successful_repairs:
+        raise RuntimeError("all repair stages failed; no restoration to charge for")
+
+    # Stage 5: DDColor (B&W input only).
+    yield {"kind": "stage_start", "stage": "colorize_check", "t_ms": t()}
+    input_is_gray = is_grayscale(normalized_input, gray_threshold)
+    yield {"kind": "stage_done", "stage": "colorize_check", "t_ms": t(),
+           "extra": {"is_grayscale": input_is_gray, "threshold": gray_threshold}}
+
+    was_colorized = False
+    if input_is_gray and colorize:
+        yield {"kind": "stage_start", "stage": "ddcolor", "t_ms": t()}
+        s = time.monotonic()
+        try:
+            dd_in = os.path.join(workdir, "dd_in")
+            os.makedirs(dd_in, exist_ok=True)
+            shutil.copy(cur, os.path.join(dd_in, "img.png"))
+            cur = ddcolor.run(dd_in, os.path.join(workdir, "dd_out"))
+            was_colorized = True
+            yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
+                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
+        except Exception as e:
+            print(f"DDColor stage unavailable: {e}", flush=True)
+            yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
+                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                             "skipped": True, "error": "stage unavailable"}}
+    else:
+        yield {"kind": "stage_skipped", "stage": "ddcolor", "t_ms": t(),
+               "reason": "Color was not requested or input already has color."}
+
+    # Check the final image, after every operation that can change the face.
     yield {"kind": "stage_start", "stage": "adaface", "t_ms": t()}
     s = time.monotonic()
     cosine: Optional[float] = None
@@ -168,33 +204,6 @@ def pipeline_events(image_bytes: bytes, workdir: str) -> Generator[Dict[str, Any
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
                          "skipped": True, "error": "stage unavailable",
                          "identity_warning": True}}
-
-    # Stage 5: DDColor (B&W input only).
-    yield {"kind": "stage_start", "stage": "colorize_check", "t_ms": t()}
-    input_is_gray = is_grayscale(normalized_input, gray_threshold)
-    yield {"kind": "stage_done", "stage": "colorize_check", "t_ms": t(),
-           "extra": {"is_grayscale": input_is_gray, "threshold": gray_threshold}}
-
-    was_colorized = False
-    if input_is_gray:
-        yield {"kind": "stage_start", "stage": "ddcolor", "t_ms": t()}
-        s = time.monotonic()
-        try:
-            dd_in = os.path.join(workdir, "dd_in")
-            os.makedirs(dd_in, exist_ok=True)
-            shutil.copy(cur, os.path.join(dd_in, "img.png"))
-            cur = ddcolor.run(dd_in, os.path.join(workdir, "dd_out"))
-            was_colorized = True
-            yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
-                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
-        except Exception as e:
-            print(f"DDColor stage unavailable: {e}", flush=True)
-            yield {"kind": "stage_done", "stage": "ddcolor", "t_ms": t(),
-                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                             "skipped": True, "error": "stage unavailable"}}
-    else:
-        yield {"kind": "stage_skipped", "stage": "ddcolor", "t_ms": t(),
-               "reason": "Input is color; colorization skipped."}
 
     yield {"kind": "final", "t_ms": t(), "result": {
         "restored_url": _data_url(_encode_jpeg(cur)),
@@ -218,6 +227,7 @@ def _read_image(image: UploadFile) -> bytes:
 def restore(
     image: UploadFile = File(...),
     x_pipeline_key: Optional[str] = Header(default=None),
+    colorize: bool = Form(default=False),
 ):
     _require_pipeline_key(x_pipeline_key)
     try:
@@ -227,7 +237,7 @@ def restore(
     try:
         with tempfile.TemporaryDirectory() as workdir:
             result = None
-            for ev in pipeline_events(data, workdir):
+            for ev in pipeline_events(data, workdir, colorize=colorize):
                 if ev["kind"] == "final":
                     result = ev["result"]
         if result is None:
@@ -242,6 +252,7 @@ def restore(
 def restore_stream(
     image: UploadFile = File(...),
     x_pipeline_key: Optional[str] = Header(default=None),
+    colorize: bool = Form(default=False),
 ):
     _require_pipeline_key(x_pipeline_key)
     try:
@@ -252,7 +263,7 @@ def restore_stream(
     def gen():
         try:
             with tempfile.TemporaryDirectory() as workdir:
-                for ev in pipeline_events(data, workdir):
+                for ev in pipeline_events(data, workdir, colorize=colorize):
                     yield json.dumps(ev) + "\n"
         except Exception as e:
             print(f"restore stream failed: {e}", flush=True)

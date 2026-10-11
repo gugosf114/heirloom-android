@@ -28,6 +28,8 @@ class DesignPreviewActivity : ComponentActivity() {
         val state = intent.getStringExtra("state") ?: "selected"
         val image = intent.getStringExtra("image")
             ?: "android.resource://${packageName}/${com.heirloom.app.R.drawable.archive_portrait}"
+        val restored = intent.getStringExtra("restored")
+            ?: "android.resource://${packageName}/${com.heirloom.app.R.drawable.restored_sample}"
         val completed = mapOf(
             Stage.Uploading to StageResult.Completed,
             Stage.RepairingDamage to StageResult.Completed,
@@ -39,7 +41,7 @@ class DesignPreviewActivity : ComponentActivity() {
         )
 
         setContent {
-            HeirloomTheme {
+            HeirloomTheme(darkTheme = !intent.getBooleanExtra("light", false)) {
                 Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
                     Box(
                         modifier = Modifier
@@ -71,7 +73,7 @@ class DesignPreviewActivity : ComponentActivity() {
                                     )
                                     "done" -> PremiumDoneBody(
                                         sourceUri = image,
-                                        restoredUrl = image,
+                                        restoredUrl = restored,
                                         identityWarning = false,
                                         identityUnverified = false,
                                         wasColorized = false,
@@ -85,7 +87,7 @@ class DesignPreviewActivity : ComponentActivity() {
                                     )
                                     "warning" -> PremiumDoneBody(
                                         sourceUri = image,
-                                        restoredUrl = image,
+                                        restoredUrl = restored,
                                         identityWarning = true,
                                         identityUnverified = false,
                                         wasColorized = true,

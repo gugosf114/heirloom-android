@@ -123,7 +123,7 @@ internal fun PremiumIdleBody(onPick: () -> Unit, onScan: (() -> Unit)? = null) {
 }
 
 @Composable
-internal fun PremiumPickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> Unit) {
+internal fun PremiumPickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> Unit, colorize: Boolean = false, onColorize: (Boolean) -> Unit = {}) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 12.dp)) {
         GalleryEyebrow("01 / Your photograph")
         Text("Let's bring it back.", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 9.dp, bottom = 20.dp))
@@ -131,6 +131,15 @@ internal fun PremiumPickedBody(sourceUri: String, onRestore: () -> Unit, onReset
         Text("Scratches repaired. Faces refined.\nThe original stays yours, untouched.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 20.dp))
+        Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Add color", style = MaterialTheme.typography.titleSmall)
+                Text("For black-and-white photos. AI guesses the colors.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = colorize, onCheckedChange = onColorize,
+                modifier = Modifier.semantics { contentDescription = "Add color to a black-and-white photo" })
+        }
         PremiumPrimaryButton("Restore this photograph", onRestore, Modifier.fillMaxWidth())
         TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Choose another photo") }
     }

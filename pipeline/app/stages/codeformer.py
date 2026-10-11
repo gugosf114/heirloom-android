@@ -30,7 +30,5 @@ def run(in_path: str, out_dir: str, fidelity: float = 0.7, upscale: int = 2) -> 
     # inference_codeformer.py writes the full restored image to final_results/.
     hits = glob.glob(os.path.join(out_dir, "final_results", "*"))
     if not hits:
-        hits = glob.glob(os.path.join(out_dir, "**", "*.png"), recursive=True)
-    if not hits:
         raise RuntimeError(f"CodeFormer produced no output under {out_dir}")
     return sorted(hits)[0]

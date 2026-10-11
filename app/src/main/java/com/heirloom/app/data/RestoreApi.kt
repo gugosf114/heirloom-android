@@ -3,6 +3,8 @@ package com.heirloom.app.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.util.Base64
 import com.heirloom.app.HeirloomApp
@@ -52,6 +54,7 @@ object RestoreApi {
     suspend fun restore(
         context: Context,
         source: Uri,
+        colorize: Boolean = false,
         onEvent: (PipelineEvent) -> Unit,
     ): RestoreResult = withContext(Dispatchers.IO) {
         val billing = (context.applicationContext as HeirloomApp).billing
@@ -75,6 +78,7 @@ object RestoreApi {
 
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
+            .addFormDataPart("colorize", colorize.toString())
             .addFormDataPart(
                 "image",
                 "input.jpg",
@@ -173,8 +177,27 @@ object RestoreApi {
         val opts = BitmapFactory.Options().apply {
             inSampleSize = uploadDecodeSampleSize(width, height)
         }
-        val decoded = BitmapFactory.decodeByteArray(raw, 0, raw.size, opts)
+        val encodedBitmap = BitmapFactory.decodeByteArray(raw, 0, raw.size, opts)
             ?: error("Could not decode selected image")
+        // Resizing strips EXIF. Apply its orientation before producing the JPEG.
+        val orientation = raw.inputStream().use {
+            runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1) }.getOrDefault(1)
+        }
+        val matrix = Matrix().apply {
+            when (orientation) {
+                2 -> setScale(-1f, 1f)
+                3 -> setRotate(180f)
+                4 -> setScale(1f, -1f)
+                5 -> { setRotate(90f); postScale(-1f, 1f) }
+                6 -> setRotate(90f)
+                7 -> { setRotate(-90f); postScale(-1f, 1f) }
+                8 -> setRotate(-90f)
+            }
+        }
+        val decoded = if (matrix.isIdentity) encodedBitmap else {
+            Bitmap.createBitmap(encodedBitmap, 0, 0, encodedBitmap.width, encodedBitmap.height, matrix, true)
+                .also { if (it !== encodedBitmap) encodedBitmap.recycle() }
+        }
         val largest = maxOf(decoded.width, decoded.height)
         val bitmap = if (largest > MAX_UPLOAD_DIMENSION) {
             val scale = MAX_UPLOAD_DIMENSION.toFloat() / largest

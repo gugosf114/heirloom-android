@@ -22,8 +22,8 @@ private val phases = listOf(
     Stage.RepairingDamage to "Repairing damage",
     Stage.RestoringFaces to "Restoring faces",
     Stage.Upscaling to "Refining the detail",
-    Stage.CheckingIdentity to "Comparing the face",
     Stage.Colorizing to "Working on color",
+    Stage.CheckingIdentity to "Comparing the face",
     Stage.Finalizing to "Preparing your copy",
 )
 
