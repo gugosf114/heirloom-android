@@ -43,7 +43,7 @@ The output was a real 855,420-byte JPEG. The image had visibly invented color, i
 - A live photo passed every original model stage.
 - Six pipeline checks passed, including default tone preservation, checking the final image, failing when every repair fails, image orientation, and the existing scratch-repair fallback checks.
 - The gateway's six checks and TypeScript checks passed.
-- Android build, unit, and layout checks passed on the first complete design build. Final build and phone evidence are recorded with the finished change.
+- Final Android compilation, unit checks, lint, and release bundle checks passed. The Studio APK was installed on the phone and inspected in normal and large-text layouts.
 
 ## Source map
 
@@ -56,3 +56,15 @@ The output was a real 855,420-byte JPEG. The image had visibly invented color, i
 - `pipeline/app/server.py`: model order, failures, temporary files, and streaming.
 - `pipeline/app/stages`: model invocations and output selection.
 - `pipeline/app/adaface.py`, `face_align.py`, and `grayscale.py`: face alignment, comparison, and color detection.
+
+## Final phone and deployment proof
+
+The repaired engine is live on Cloud Run revision `heirloom-pipeline-00010-rcr`. Its source is the pipeline in commit `b211acb`.
+
+The installed Studio RC8 APK was built from `e33d066`. SHA-256: `12e7fa659a0489ac0fc59be51ac25c117bc5f065351596f9a9c6d305c35505fd`.
+
+A second real run started from Android's photo picker. The test JPEG was physically sideways, with EXIF orientation 6 and a 1,800-pixel long edge. This exercised the Android resize and rotation path. The app displayed it upright, restored it through the development credit gateway and the repaired engine, then saved it to `Pictures/Heirloom/heirloom_1791760900256.jpg` (1,740,711 bytes). The balance changed from three credits to two. The app also remained active as a foreground service while its screen was left.
+
+The result divider and its accessible slider moved together on the phone. The gallery button, credit sheet's unavailable state, error layout, selected-photo color switch, and controls at 150 percent text size were inspected. Screenshots are in [the design review](DESIGN.md).
+
+Code and checks: [merged change 11](https://github.com/gugosf114/heirloom-android/pull/11), [Android, pipeline, and gateway checks](https://github.com/gugosf114/heirloom-android/actions/runs/38183539068), [installed Studio build](https://github.com/gugosf114/heirloom-android/actions/runs/38183451569).

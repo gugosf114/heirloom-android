@@ -1,8 +1,10 @@
+[Download the Studio review build — October 11, 2026](https://github.com/gugosf114/heirloom-android/actions/runs/38183451569/artifacts/11718940807)
+
 # Heirloom
 
-> [!IMPORTANT]
-> ## [⬇ DOWNLOAD THE NEWEST HEIRLOOM APK](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc6.apk)
-> **Current phone build: RC6 · Android version code 6**
+**Studio RC8:** the redesigned app is installed separately as **Heirloom Studio** on George's phone. Its development access is supplied on-device; the APK contains no development key. Google Play's current release remains RC6.
+
+[Engine review](docs/ENGINE_REVIEW.md) · [Design screenshots](docs/DESIGN.md)
 
 Android photo restoration for old and damaged family photographs.
 
@@ -12,7 +14,7 @@ Android photo restoration for old and damaged family photographs.
 
 Heirloom restores one selected photo at a time. It repairs damage, restores
 faces, upscales detail, checks whether the restored face still resembles the
-original, and colorizes black-and-white input when appropriate.
+original, and can add color to black-and-white input when requested. Original tones are kept by default.
 
 - Three free restorations per eligible Play installation
 - Consumable Google Play packs: 5, 20, or 50 additional restorations
@@ -32,8 +34,8 @@ Android (Kotlin + Compose)
      1. Bringing Old Photos Back to Life
      2. CodeFormer
      3. Real-ESRGAN
-     4. AdaFace identity check
-     5. DDColor for black-and-white input
+     4. Optional DDColor for black-and-white input
+     5. AdaFace check of the final image
   -> inline JPEG response
   -> app-private cache on the phone
 ```
