@@ -63,7 +63,7 @@ The repaired engine is live on Cloud Run revision `heirloom-pipeline-00010-rcr`.
 
 The installed Studio RC8 APK was built from `e33d066`. SHA-256: `12e7fa659a0489ac0fc59be51ac25c117bc5f065351596f9a9c6d305c35505fd`.
 
-A second real run started from Android's photo picker. The test JPEG was physically sideways, with EXIF orientation 6 and a 1,800-pixel long edge. This exercised the Android resize and rotation path. The app displayed it upright, restored it through the development credit gateway and the repaired engine, then saved it to `Pictures/Heirloom/heirloom_1791760900256.jpg` (1,740,711 bytes). The balance changed from three credits to two. The app also remained active as a foreground service while its screen was left.
+A second real run started from Android's photo picker. The test JPEG was physically sideways, with EXIF orientation 6 and a 1,800-pixel long edge. This exercised the Android resize and rotation path. The app displayed it upright, restored it through the development credit gateway and the repaired engine, then saved it to `Pictures/Heirloom/heirloom_1791760900256.jpg` (3,280 × 4,096 pixels; 1,740,711 bytes). The server recorded a successful HTTP 200 response in 77.0 seconds. The balance changed from three credits to two. The app also remained active as a foreground service while its screen was left.
 
 The result divider and its accessible slider moved together on the phone. The gallery button, credit sheet's unavailable state, error layout, selected-photo color switch, and controls at 150 percent text size were inspected. Screenshots are in [the design review](DESIGN.md).
 
