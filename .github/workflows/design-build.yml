@@ -2,7 +2,7 @@ name: Design build
 on:
   workflow_dispatch:
   push:
-    branches: ['redesign/**']
+    branches: ['redesign/**', 'repair/**']
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -17,11 +17,10 @@ jobs:
         env:
           STUDIO_SIGNING_KEY: ${{ secrets.HEIRLOOM_STUDIO_KEYSTORE }}
         run: |
-          mkdir -p ~/.android
-          printf '%s' "$STUDIO_SIGNING_KEY" | base64 --decode > ~/.android/debug.keystore
-          chmod 600 ~/.android/debug.keystore
+          printf '%s' "$STUDIO_SIGNING_KEY" | base64 --decode > "$RUNNER_TEMP/heirloom-studio.keystore"
+          chmod 600 "$RUNNER_TEMP/heirloom-studio.keystore"
       - name: Build Android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug signingReport --no-build-cache --no-daemon -PHEIRLOOM_STUDIO_STORE="$RUNNER_TEMP/heirloom-studio.keystore"
       - uses: actions/upload-artifact@v4
         with:
           name: Heirloom-studio-preview

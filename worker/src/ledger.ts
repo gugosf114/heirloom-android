@@ -443,3 +443,15 @@ function nowSeconds(): number {
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/** A lost gateway must not strand a credit after the maximum request lifetime. */
+export async function refundAbandonedRestorations(
+  db: D1Database, clientId: string, now: number = nowSeconds(),
+): Promise<void> {
+  const abandoned = await db.prepare(
+    `SELECT request_id FROM restorations
+      WHERE client_id = ?1 AND status = 'reserved' AND created_at < ?2
+      ORDER BY created_at LIMIT 20`,
+  ).bind(clientId, now - 15 * 60).all<{ request_id: string }>();
+  for (const row of abandoned.results) await refundRestoration(db, row.request_id);
+}

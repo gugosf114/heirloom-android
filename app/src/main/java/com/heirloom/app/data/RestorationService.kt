@@ -71,6 +71,7 @@ class RestorationService : Service() {
 
     private suspend fun restore(source: Uri, colorize: Boolean) {
         val startedAt = System.currentTimeMillis()
+        RestorationDiagnostics.record(this, "started")
         val stageResults = linkedMapOf<Stage, StageResult>()
         publish(RestoreState.Processing(source, Stage.Uploading), Stage.Uploading)
 
@@ -78,6 +79,7 @@ class RestorationService : Service() {
             val result = RestoreApi.restore(applicationContext, source, colorize) { event ->
                 when (event) {
                     is PipelineEvent.StageStarted -> {
+                        RestorationDiagnostics.record(this, "stage=${event.stage}")
                         stageResults.putIfAbsent(Stage.Uploading, StageResult.Completed)
                         publish(
                             RestoreState.Processing(
@@ -128,11 +130,18 @@ class RestorationService : Service() {
             (application as HeirloomApp).billing.recordSuccessfulRestoration(
                 result.creditsRemaining,
             )
+            RestorationDiagnostics.record(this, "completed seconds=${(System.currentTimeMillis() - startedAt) / 1000}")
             finishNotification("Restoration complete", "Tap to view your restored photo")
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            Log.e("HeirloomRestore", "Restoration failed", error)
+            val detail = when (error) {
+                is RestoreHttpException -> "http=${error.statusCode}"
+                is PipelineReplyException -> "incomplete_reply characters=${error.receivedCharacters}"
+                else -> error.javaClass.simpleName
+            }
+            Log.e("HeirloomRestore", "Restoration failed: $detail")
+            RestorationDiagnostics.record(this, "failed $detail")
             val message = userMessage(error)
             RestorationSession.update(RestoreState.Failed(source, message, colorize))
             finishNotification("Restoration failed", message)
@@ -203,6 +212,7 @@ class RestorationService : Service() {
     }
 
     private fun userMessage(error: Throwable): String = when (error) {
+        is PipelineReplyException -> "The restored photo did not arrive intact. Please try again."
         is UnknownHostException -> "No internet connection. Reconnect and try again."
         is SocketTimeoutException -> "The restoration took too long. Please try again."
         is RestoreHttpException -> when (error.statusCode) {
