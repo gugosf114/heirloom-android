@@ -10,7 +10,7 @@
     "tail": "wrangler tail",
     "smoke": "tsx test/smoke.ts",
     "smoke:remote": "WORKER_URL=https://heirloom-worker.gugosf.workers.dev tsx test/smoke.ts",
-    "test": "node --import tsx --test test/unit.test.ts"
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {},
   "devDependencies": {

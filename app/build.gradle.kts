@@ -16,8 +16,8 @@ android {
         applicationId = "com.wimlabs.heirloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.0.0-rc8"
+        versionCode = 9
+        versionName = "1.0.0-rc9"
         vectorDrawables { useSupportLibrary = true }
     }
 

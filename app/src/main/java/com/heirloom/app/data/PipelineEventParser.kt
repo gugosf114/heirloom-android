@@ -1,6 +1,8 @@
 package com.heirloom.app.data
 
 import org.json.JSONObject
+import org.json.JSONException
+import java.io.IOException
 
 data class PipelineFinal(
     val restoredUrl: String,
@@ -18,7 +20,19 @@ sealed interface PipelineEvent {
     data object Ignored : PipelineEvent
 }
 
-fun parsePipelineEvent(line: String): PipelineEvent {
+class PipelineReplyException(val receivedCharacters: Int) : IOException(
+    "Incomplete restoration reply ($receivedCharacters characters)",
+)
+
+fun parsePipelineEvent(line: String): PipelineEvent = try {
+    parseValidPipelineEvent(line)
+} catch (_: JSONException) {
+    // JSONException includes its entire input. Never copy a private photograph
+    // into logs or retain the malformed multi-megabyte payload as a cause.
+    throw PipelineReplyException(line.length)
+}
+
+private fun parseValidPipelineEvent(line: String): PipelineEvent {
     val json = JSONObject(line)
     return when (json.optString("kind")) {
         "stage_start" -> backendStage(json.optString("stage"))

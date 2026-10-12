@@ -1,11 +1,24 @@
 package com.heirloom.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PipelineEventParserTest {
+    @Test
+    fun cutOffPhotoProducesABoundedErrorWithoutPhotoData() {
+        val sensitiveImage = "private-image-contents".repeat(2000)
+        val line = """{"kind":"final","result":{"restored_url":"data:image/jpeg;base64,$sensitiveImage"""
+        val failure = assertThrows(PipelineReplyException::class.java) { parsePipelineEvent(line) }
+        assertEquals(line.length, failure.receivedCharacters)
+        assertTrue(failure.toString().length < 200)
+        assertFalse(failure.toString().contains("private-image"))
+        assertNull(failure.cause)
+    }
+
     @Test
     fun largeButCompressedPhonePhotoIsTranscoded() {
         assertTrue(needsUploadTranscode(width = 6_000, height = 4_000, byteCount = 700_000))

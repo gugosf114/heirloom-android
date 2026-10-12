@@ -2,7 +2,7 @@ name: Design build
 on:
   workflow_dispatch:
   push:
-    branches: ['redesign/**']
+    branches: ['redesign/**', 'repair/**']
 jobs:
   android:
     runs-on: ubuntu-latest

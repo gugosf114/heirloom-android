@@ -1,3 +1,4 @@
+import { monitorRestorationStream } from './restoreStream';
 /**
  * Heirloom edge gateway.
  *
@@ -28,6 +29,7 @@ import {
   paidCandidates,
   purchaseForTokenHash,
   refundRestoration,
+  refundAbandonedRestorations,
   registerPurchase,
   reserveRestoration,
   sha256Hex,
@@ -163,6 +165,7 @@ async function syncBilling(request: Request, env: Env): Promise<Response> {
   }
 
   await ensureClient(env.BILLING, parsed.value.clientId);
+  await refundAbandonedRestorations(env.BILLING, parsed.value.clientId);
   for (const purchase of parsed.value.purchases) {
     await syncPurchase(env, packageName, parsed.value.clientId, purchase);
   }
@@ -397,64 +400,6 @@ async function finishSuccessfulRestore(env: Env, reservation: Reservation): Prom
     await markPurchaseConsumed(env.BILLING, completed.tokenHash);
   } catch {
     await markConsumePending(env.BILLING, completed.tokenHash);
-  }
-}
-
-function monitorRestorationStream(
-  body: ReadableStream<Uint8Array>,
-  onSuccess: () => Promise<void>,
-  onFailure: () => Promise<void>,
-  ctx: ExecutionContext,
-): ReadableStream<Uint8Array> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let finalSeen = false;
-  let settled = false;
-
-  const settle = (success: boolean): void => {
-    if (settled) return;
-    settled = true;
-    ctx.waitUntil(success ? onSuccess() : onFailure());
-  };
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        const next = await reader.read();
-        if (next.done) {
-          buffer += decoder.decode();
-          if (buffer.trim()) finalSeen ||= lineIsFinal(buffer);
-          settle(finalSeen);
-          controller.close();
-          return;
-        }
-        controller.enqueue(next.value);
-        buffer += decoder.decode(next.value, { stream: true });
-        let newline = buffer.indexOf('\n');
-        while (newline >= 0) {
-          const line = buffer.slice(0, newline).trim();
-          buffer = buffer.slice(newline + 1);
-          if (line) finalSeen ||= lineIsFinal(line);
-          newline = buffer.indexOf('\n');
-        }
-      } catch (error) {
-        settle(false);
-        controller.error(error);
-      }
-    },
-    async cancel(reason) {
-      settle(finalSeen);
-      await reader.cancel(reason);
-    },
-  });
-}
-
-function lineIsFinal(line: string): boolean {
-  try {
-    return (JSON.parse(line) as { kind?: string }).kind === 'final';
-  } catch {
-    return false;
   }
 }
 
