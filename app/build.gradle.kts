@@ -47,8 +47,20 @@ android {
         }
     }
 
+    // Explicit store: Android toolchains may use a different default debug-key directory.
+    val studioStore = project.findProperty("HEIRLOOM_STUDIO_STORE") as? String
+    if (studioStore != null) {
+        signingConfigs.create("studio") {
+            storeFile = file(studioStore)
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
+            if (studioStore != null) signingConfig = signingConfigs.getByName("studio")
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
             buildConfigField("String", "WORKER_BASE_URL", "\"https://heirloom-worker-dev.gugosf.workers.dev\"")
