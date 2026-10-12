@@ -68,3 +68,24 @@ A second real run started from Android's photo picker. The test JPEG was physica
 The result divider and its accessible slider moved together on the phone. The gallery button, credit sheet's unavailable state, error layout, selected-photo color switch, and controls at 150 percent text size were inspected. Screenshots are in [the design review](DESIGN.md).
 
 Code and checks: [merged change 11](https://github.com/gugosf114/heirloom-android/pull/11), [Android, pipeline, and gateway checks](https://github.com/gugosf114/heirloom-android/actions/runs/38183539068), [installed Studio build](https://github.com/gugosf114/heirloom-android/actions/runs/38183451569).
+
+## October 12 repair for cut off results
+
+A real restoration stopped on the phone even though the models finished. Repeating the same private photograph reproduced an incomplete final reply. Cloudflare recorded `exceededCpu` and 2,020 ms of CPU time in the gateway. The Android error was an unterminated JSON string inside the inline photograph.
+
+The gateway repeatedly joined and rescanned the growing photo string while waiting for its final newline. The earlier smaller archive photograph did not expose this failure. An interrupted gateway could also leave a credit reserved.
+
+The repair inspects at most 16 KiB of event metadata and passes photo bytes through unchanged. The complete final event must arrive before the work is marked successful. Errors and cancelled streams refund the reservation. On billing refresh, reservations abandoned beyond 15 minutes are refunded once; recent, completed, and other clients' work are left alone.
+
+A repeated live request delivered the complete 4,050,483-character final event in 56.7 seconds. Gateway CPU time fell from 2,020 ms to 163 ms. Both production and development gateways have the repair.
+
+Twelve gateway checks passed. They include an 8 MiB response delivered byte-for-byte, split JSON and escaped strings, truncated images, cancellation, and real SQLite checks for credit recovery. Android RC9 adds bounded stage logs that contain no photo data. Malformed JSON errors no longer dump the photograph into logcat.
+
+The build workflow now selects the saved Studio signing key explicitly. Previously, writing a key into the presumed Android debug directory did not make the generated APK use it. The installed RC8, first RC9 build, and saved key had different certificate fingerprints. The final RC9 APK is verified against the saved key. App files, cached photographs, databases, and preferences were backed up and restored during this one-time signing repair; the cached input photograph was checked byte-for-byte afterward.
+
+Code: [repair 12](https://github.com/gugosf114/heirloom-android/pull/12). The private input photograph and its output are kept off this repository.
+
+
+Final phone proof: Studio RC9 restored the same previously failing private photograph, with color enabled, in 55 seconds. The phone received and stored a 3,037,914-byte JPEG. The gateway recorded HTTP 200, no exceptions, and 126 ms of CPU time. The result was saved through the app's Save photo button and decoded successfully from the phone gallery.
+
+Installed APK SHA-256: `dc9883c4aec0ded8229767c1f17cd95270cdeb160d4ebe862e9044cf10ff9301`. Its signing certificate SHA-256 matches the saved Studio key: `5ce81f8c3d8506f3eee488412a41dc3aa7700f233d7756a78931afb73329bc8d`. The phone retained the previous cached photographs after the signing migration.

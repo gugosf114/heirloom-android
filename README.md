@@ -1,8 +1,8 @@
-[Download the Studio review build — October 11, 2026](https://github.com/gugosf114/heirloom-android/actions/runs/38183451569/artifacts/11718940807)
+[Download the Studio review build — October 12, 2026](https://github.com/gugosf114/heirloom-android/actions/runs/38269450718/artifacts/11755769413)
 
 # Heirloom
 
-**Studio RC8:** the redesigned app is installed separately as **Heirloom Studio** on George's phone. Its development access is supplied on-device; the APK contains no development key. Google Play's current release remains RC6.
+**Studio RC9:** the redesigned app is installed separately as **Heirloom Studio** on George's phone. Its development access is supplied on-device; the APK contains no development key. Google Play's current release remains RC6.
 
 [Engine review](docs/ENGINE_REVIEW.md) · [Design screenshots](docs/DESIGN.md)
 
