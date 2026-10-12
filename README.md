@@ -1,4 +1,5 @@
-[Download the Studio review build — October 12, 2026](https://github.com/gugosf114/heirloom-android/actions/runs/38269450718/artifacts/11755769413)
+> ## [⬇ DOWNLOAD THE LATEST ANDROID APK — 2026-10-12](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc9.apk)
+> **Current build: 1.0.0-rc9 · Android version code 9 · 2026-10-12**
 
 # Heirloom
 
