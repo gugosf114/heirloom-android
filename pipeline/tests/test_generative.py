@@ -27,6 +27,14 @@ class PromptTest(unittest.TestCase):
         self.assertIn('Do not add color', p)
         self.assertIn('do not add, remove, or move anything', p)
 
+    def test_modes_change_the_work_but_never_the_identity_rules(self):
+        full = generative.restoration_prompt(False, 'full'); repair = generative.restoration_prompt(False, 'repair')
+        sharpen = generative.restoration_prompt(False, 'sharpen'); color = generative.restoration_prompt(False, 'color')
+        for p in (full, repair, sharpen, color): self.assertIn('same identity', p)
+        self.assertIn('Do not sharpen', repair); self.assertIn('Do not repair', sharpen)
+        self.assertIn('change nothing else', color); self.assertIn('Add realistic', color)
+        self.assertEqual(generative.restoration_prompt(False, 'bogus'), full)
+
     def test_color_only_when_asked(self):
         self.assertIn('Add realistic', generative.restoration_prompt(colorize=True))
         self.assertNotIn('Add realistic', generative.restoration_prompt(colorize=False))
@@ -77,7 +85,7 @@ class GenerativeRoutingTest(unittest.TestCase):
         buf = io.BytesIO(); Image.new('RGB', (80, 100), (200, 60, 30)).save(buf, 'JPEG'); self.color_photo = buf.getvalue()
 
     def events(self, photo, colorize=False, fail=False):
-        def gen(in_path, out_dir, colorize):
+        def gen(in_path, out_dir, colorize, **kwargs):
             if fail: raise RuntimeError('provider down')
             return self.restored
         with patch.object(server, 'RESTORE_ENGINE', 'generative'), \
@@ -101,6 +109,17 @@ class GenerativeRoutingTest(unittest.TestCase):
         self.assertTrue(g.call_args.kwargs['colorize']); self.assertTrue(events[-1]['result']['was_colorized'])
         events, g, *_ = self.events(self.color_photo, colorize=True)
         self.assertFalse(g.call_args.kwargs['colorize']); self.assertFalse(events[-1]['result']['was_colorized'])
+
+    def test_mode_reaches_the_model_call_and_color_mode_colorizes(self):
+        def gen(in_path, out_dir, colorize, mode='full'):
+            return self.restored
+        with patch.object(server, 'RESTORE_ENGINE', 'generative'), \
+             patch.object(server.generative, 'run', side_effect=gen) as g, \
+             patch.object(server.esrgan, 'run', side_effect=lambda img, **k: img), \
+             patch.object(server.GATE, 'compare', return_value=(0.9, {})):
+            events = list(server.pipeline_events(self.gray_photo, os.path.join(self.temp.name, 'w2'), colorize=False, mode='color'))
+        self.assertEqual(g.call_args.kwargs['mode'], 'color'); self.assertTrue(g.call_args.kwargs['colorize'])
+        self.assertTrue(events[-1]['result']['was_colorized'])
 
     def test_provider_failure_still_upscales_the_original_or_fails_honestly(self):
         # Generative down + ESRGAN up: the photo is only upscaled, never charged as "restored" by the model.

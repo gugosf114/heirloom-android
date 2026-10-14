@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.heirloom.app.R
 import com.heirloom.app.data.AnimationState
+import com.heirloom.app.data.RestoreMode
 import com.heirloom.app.data.Stage
 import com.heirloom.app.data.StageResult
 
@@ -125,15 +127,25 @@ internal fun PremiumIdleBody(onPick: () -> Unit, onScan: (() -> Unit)? = null) {
 }
 
 @Composable
-internal fun PremiumPickedBody(sourceUri: String, onRestore: () -> Unit, onReset: () -> Unit, colorize: Boolean = false, onColorize: (Boolean) -> Unit = {}) {
+internal fun PremiumPickedBody(
+    sourceUri: String, onRestore: () -> Unit, onReset: () -> Unit, colorize: Boolean = false, onColorize: (Boolean) -> Unit = {},
+    mode: RestoreMode = RestoreMode.Full, onMode: (RestoreMode) -> Unit = {},
+) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 12.dp)) {
         GalleryEyebrow("01 / Your photograph")
         Text("Let's bring it back.", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(top = 9.dp, bottom = 20.dp))
         PremiumPhotoMount(sourceUri, "Selected photograph", Modifier.fillMaxWidth().aspectRatio(.92f))
-        Text("Scratches repaired. Faces refined.\nThe original stays yours, untouched.",
+        Text("The original stays yours, untouched.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(vertical = 20.dp))
-        Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            modifier = Modifier.padding(top = 20.dp, bottom = 12.dp))
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            RestoreMode.entries.forEach { option ->
+                FilterChip(selected = option == mode, onClick = { onMode(option) }, label = { Text(option.label) })
+            }
+        }
+        Text(mode.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
+        if (mode != RestoreMode.Color) Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Add color", style = MaterialTheme.typography.titleSmall)
                 Text("For black-and-white photos. AI guesses the colors.", style = MaterialTheme.typography.bodySmall,

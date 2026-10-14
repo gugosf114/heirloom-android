@@ -23,24 +23,52 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:ge
 TIMEOUT_SECONDS = int(os.getenv("GENERATIVE_TIMEOUT_SECONDS", "240"))
 
 
-def restoration_prompt(colorize: bool) -> str:
-    """The instruction every provider gets. Identity first, no inventions."""
-    color = (
+MODES = ("full", "repair", "sharpen", "color")
+
+IDENTITY_RULES = (
+    "Every person must keep exactly the same identity, face shape, features, age, expression, "
+    "hairstyle, and clothing. Do not beautify, slim, or change anyone. "
+    "Keep the exact framing, composition, and everything in the scene; do not add, remove, or "
+    "move anything. "
+)
+
+
+def restoration_prompt(colorize: bool, mode: str = "full") -> str:
+    """The instruction every provider gets. Identity first, no inventions.
+
+    full    damage repair + faces + detail (the default)
+    repair  scratches, tears, stains, fading only; leave sharpness and faces as they are
+    sharpen faces and fine detail only; leave damage marks alone
+    color   add color only; change nothing else
+    """
+    mode = mode if mode in MODES else "full"
+    add_color = (
         "The photograph is black and white or faded. Add realistic, natural, period-appropriate "
         "color to the whole image."
-        if colorize
-        else "Keep the original tones exactly: if it is black and white, sepia, or faded, leave "
+    )
+    keep_tones = (
+        "Keep the original tones exactly: if it is black and white, sepia, or faded, leave "
         "it black and white, sepia, or faded. Do not add color."
     )
-    return (
-        "Restore this old, damaged photograph. Remove scratches, tears, creases, dust, stains, "
-        "mold spots, and fading. Repair missing or torn areas so they match their surroundings. "
-        "Sharpen faces and fine detail. "
-        "Every person must keep exactly the same identity, face shape, features, age, expression, "
-        "hairstyle, and clothing. Do not beautify, slim, or change anyone. "
-        "Keep the exact framing, composition, and everything in the scene; do not add, remove, or "
-        "move anything. " + color + " Return only the restored photograph."
-    )
+    if mode == "color":
+        return ("Colorize this photograph and change nothing else. " + add_color + " Do not repair, "
+                "sharpen, smooth, or alter any detail; only the colors change. " + IDENTITY_RULES +
+                "Return only the colorized photograph.")
+    color = add_color if colorize else keep_tones
+    if mode == "repair":
+        work = ("Repair the physical damage on this old photograph only: remove scratches, tears, creases, "
+                "dust, stains, mold spots, and fading, and fill missing or torn areas so they match their "
+                "surroundings. Do not sharpen, smooth, or redraw faces or detail; leave the grain and "
+                "softness exactly as they are. ")
+    elif mode == "sharpen":
+        work = ("Sharpen this old photograph only: bring faces and fine detail into clear focus and reduce "
+                "blur and noise. Do not repair scratches, tears, stains, or other damage marks; leave them "
+                "exactly where they are. ")
+    else:
+        work = ("Restore this old, damaged photograph. Remove scratches, tears, creases, dust, stains, "
+                "mold spots, and fading. Repair missing or torn areas so they match their surroundings. "
+                "Sharpen faces and fine detail. ")
+    return work + IDENTITY_RULES + color + " Return only the restored photograph."
 
 
 def provider() -> str:
@@ -135,7 +163,7 @@ def _post(req: urllib.request.Request) -> Dict[str, Any]:
             raise RuntimeError(f"generative provider HTTP {e.code}") from None
 
 
-def run(in_path: str, out_dir: str, colorize: bool, api_key: Optional[str] = None) -> str:
+def run(in_path: str, out_dir: str, colorize: bool, api_key: Optional[str] = None, mode: str = "full") -> str:
     """Restore the photo at in_path; return the path of the restored JPEG."""
     name = provider()
     key = api_key or os.getenv("OPENAI_API_KEY" if name == "openai" else "GEMINI_API_KEY", "")
@@ -143,7 +171,7 @@ def run(in_path: str, out_dir: str, colorize: bool, api_key: Optional[str] = Non
         raise RuntimeError(f"{name}: no API key configured")
     with open(in_path, "rb") as f:
         image_bytes = f.read()
-    prompt = restoration_prompt(colorize)
+    prompt = restoration_prompt(colorize, mode)
     restored = _openai(image_bytes, prompt, key) if name == "openai" else _gemini(image_bytes, prompt, key)
     if len(restored) < 1024:
         raise RuntimeError(f"{name}: restored image is implausibly small")

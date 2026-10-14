@@ -183,6 +183,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                             },
                         )
                         is RestoreState.Picked -> PremiumPickedBody(
+                            mode = current.mode,
+                            onMode = viewModel::setMode,
                             sourceUri = current.source.toString(),
                             colorize = current.colorize,
                             onColorize = viewModel::setColorize,

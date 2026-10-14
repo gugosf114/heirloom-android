@@ -88,7 +88,7 @@ def _normalize_input(image_bytes: bytes, output_path: str) -> None:
         image.save(output_path, format="JPEG", quality=95)
 
 
-def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False) -> Generator[Dict[str, Any], None, None]:
+def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False, mode: str = "full") -> Generator[Dict[str, Any], None, None]:
     start = time.monotonic()
     def t() -> int:
         return int((time.monotonic() - start) * 1000)
@@ -117,11 +117,11 @@ def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False) ->
         yield {"kind": "stage_start", "stage": "generative", "t_ms": t()}
         s = time.monotonic()
         try:
-            cur = generative.run(orig_path, os.path.join(workdir, "gen"), colorize=colorize and input_is_gray)
+            cur = generative.run(orig_path, os.path.join(workdir, "gen"), colorize=(colorize or mode == "color") and input_is_gray, mode=mode)
             successful_repairs.append("generative")
             yield {"kind": "stage_done", "stage": "generative", "t_ms": t(),
                    "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
-                             "provider": generative.provider()}}
+                             "provider": generative.provider(), "mode": mode}}
         except Exception as e:
             print(f"generative stage failed: {e}", flush=True)
             yield {"kind": "stage_done", "stage": "generative", "t_ms": t(),
@@ -187,7 +187,7 @@ def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False) ->
 
     was_colorized = False
     if generative_engine:
-        was_colorized = bool(input_is_gray and colorize and "generative" in successful_repairs)
+        was_colorized = bool(input_is_gray and (colorize or mode == "color") and "generative" in successful_repairs)
         yield {"kind": "stage_skipped", "stage": "ddcolor", "t_ms": t(),
                "reason": "Color is handled by the restoration model." if was_colorized
                else "Color was not requested or input already has color."}
@@ -255,6 +255,7 @@ def restore(
     image: UploadFile = File(...),
     x_pipeline_key: Optional[str] = Header(default=None),
     colorize: bool = Form(default=False),
+    mode: str = Form(default="full"),
 ):
     _require_pipeline_key(x_pipeline_key)
     try:
@@ -264,7 +265,7 @@ def restore(
     try:
         with tempfile.TemporaryDirectory() as workdir:
             result = None
-            for ev in pipeline_events(data, workdir, colorize=colorize):
+            for ev in pipeline_events(data, workdir, colorize=colorize, mode=mode):
                 if ev["kind"] == "final":
                     result = ev["result"]
         if result is None:
@@ -280,6 +281,7 @@ def restore_stream(
     image: UploadFile = File(...),
     x_pipeline_key: Optional[str] = Header(default=None),
     colorize: bool = Form(default=False),
+    mode: str = Form(default="full"),
 ):
     _require_pipeline_key(x_pipeline_key)
     try:
@@ -290,7 +292,7 @@ def restore_stream(
     def gen():
         try:
             with tempfile.TemporaryDirectory() as workdir:
-                for ev in pipeline_events(data, workdir, colorize=colorize):
+                for ev in pipeline_events(data, workdir, colorize=colorize, mode=mode):
                     yield json.dumps(ev) + "\n"
         except Exception as e:
             print(f"restore stream failed: {e}", flush=True)
