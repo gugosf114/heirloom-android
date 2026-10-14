@@ -106,9 +106,22 @@ The prompt orders the model to keep every person's identity, framing, and tones,
 and to add color only when the person asked. Real-ESRGAN x2 and the AdaFace
 check run unchanged on the result. The classic chain remains selectable.
 
-Live check on October 13: Dorothea Lange's *Migrant Mother* through OpenAI,
-no color, 44 seconds, 1,024 x 1,536 output, faces intact. Gemini was not
-testable that night: the Google Cloud project's billing account was past due and
-the Gemini API refused every call.
+Live checks on October 13 and 14 with Dorothea Lange's *Migrant Mother*, no color:
+
+| Engine | Time | Output | Face score |
+| --- | ---: | --- | ---: |
+| Old five-model chain (Oct 11) | 92.3 s processing | 4,096 px | 0.895 |
+| OpenAI gpt-image-1.5, local call | 44 s | 1,024 x 1,536 | not run |
+| Gemini Nano Banana 2.1, live Cloud Run revision 00012 | 27.7 s end to end (16.7 s model, 6.3 s upscale, 3.5 s check) | 1,848 x 2,304 | 0.970 |
+
+Nano Banana Pro timed out at 240 seconds and is not used. Gemini keeps the
+input's aspect ratio; OpenAI snapped it to 2:3.
+
+Deployed: `RESTORE_PROVIDER=gemini`, `GEMINI_IMAGE_MODEL=gemini-nano-banana-2.1`.
+The Gemini key lives in a separate Google Cloud project on the same billing
+account (`heirloom-gem-10140048`, Secret Manager `heirloom-gemini-key` in
+bakers-agent): the bakers-agent project itself stays flagged "dunning deny" by
+the Gemini API even with a zero balance, a known Google-side flag that payment
+does not clear.
 
 The Android app shows the generative step as "Repairing damage".
