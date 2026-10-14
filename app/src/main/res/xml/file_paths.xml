@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="restored" path="restored/" />
+    <cache-path name="animations" path="animations/" />
     <external-files-path name="external_restored" path="restored/" />
 </paths>
