@@ -11,11 +11,13 @@ from unittest.mock import patch
 
 from PIL import Image
 
+# Stub the GPU gate for good (no patch.dict): a restoring context would evict cv2 and
+# numpy from sys.modules on exit, and the next test module's re-import of cv2 breaks.
 gate_module = types.ModuleType('pipeline.app.adaface')
 gate_module.GATE = types.SimpleNamespace(ready=lambda: None, compare=lambda *args: (0.9, {}))
-with patch.dict(sys.modules, {'pipeline.app.adaface': gate_module}):
-    server = importlib.import_module('pipeline.app.server')
-    generative = importlib.import_module('pipeline.app.stages.generative')
+sys.modules.setdefault('pipeline.app.adaface', gate_module)
+server = importlib.import_module('pipeline.app.server')
+generative = importlib.import_module('pipeline.app.stages.generative')
 
 
 class PromptTest(unittest.TestCase):
