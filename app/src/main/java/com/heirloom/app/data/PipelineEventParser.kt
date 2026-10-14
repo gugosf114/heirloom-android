@@ -83,6 +83,7 @@ private fun parseValidPipelineEvent(line: String): PipelineEvent {
 
 private fun backendStage(name: String): Stage? = when (name) {
     "bopb" -> Stage.RepairingDamage
+    "generative" -> Stage.RepairingDamage
     "codeformer" -> Stage.RestoringFaces
     "esrgan" -> Stage.Upscaling
     "adaface" -> Stage.CheckingIdentity
