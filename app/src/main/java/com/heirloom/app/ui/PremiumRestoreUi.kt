@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.heirloom.app.R
+import com.heirloom.app.data.AnimationState
 import com.heirloom.app.data.Stage
 import com.heirloom.app.data.StageResult
 
@@ -159,6 +161,8 @@ internal fun PremiumDoneBody(
     sourceUri: String, restoredUrl: String, identityWarning: Boolean, identityUnverified: Boolean,
     wasColorized: Boolean, cosineSimilarity: Double?, elapsedSeconds: Long?, stageResults: Map<Stage, StageResult>,
     onSave: () -> Unit, onShare: () -> Unit, onReport: () -> Unit, onReset: () -> Unit,
+    animation: AnimationState = AnimationState.Idle,
+    onAnimate: () -> Unit = {}, onSaveVideo: (String) -> Unit = {}, onShareVideo: (String) -> Unit = {},
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 16.dp)) {
@@ -172,6 +176,7 @@ internal fun PremiumDoneBody(
             PremiumPrimaryButton("Save photo", onSave, Modifier.weight(1f), Icons.Outlined.FileDownload)
             PremiumSecondaryButton("Share", onShare, Modifier.weight(.7f), Icons.Outlined.Share)
         }
+        BringToLifeCard(animation, onAnimate, onSaveVideo, onShareVideo)
         TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Restore another photograph") }
         HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
         TextButton(onClick = { showDetails = !showDetails }, modifier = Modifier.fillMaxWidth()) {
@@ -284,4 +289,56 @@ internal fun PremiumSecondaryButton(label: String, onClick: () -> Unit, modifier
         if (icon != null) { Icon(icon, null, Modifier.size(19.dp)); Spacer(Modifier.width(7.dp)) }
         Text(label, style = MaterialTheme.typography.labelLarge)
     }
+}
+
+
+/** "Bring it to life": a 4-second clip from the restored photo. One credit. */
+@Composable
+private fun BringToLifeCard(
+    animation: AnimationState, onAnimate: () -> Unit, onSaveVideo: (String) -> Unit, onShareVideo: (String) -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 18.dp)
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)).padding(14.dp),
+    ) {
+        Text("Bring it to life", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "A four-second clip: a breath, a blink, a small turn. The faces stay the same. One credit.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+        )
+        when (animation) {
+            AnimationState.Idle -> PremiumSecondaryButton("Make the clip", onAnimate, Modifier.fillMaxWidth(), Icons.Outlined.AutoAwesome)
+            AnimationState.Working -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Text("Making the clip. About a minute.", Modifier.padding(start = 10.dp), style = MaterialTheme.typography.bodyMedium)
+            }
+            is AnimationState.Failed -> {
+                Text(animation.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onAnimate) { Text("Try again") }
+            }
+            is AnimationState.Done -> {
+                LoopingVideo(animation.videoUrl, Modifier.fillMaxWidth().aspectRatio(.88f).clip(RoundedCornerShape(6.dp)))
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PremiumPrimaryButton("Save clip", { onSaveVideo(animation.videoUrl) }, Modifier.weight(1f), Icons.Outlined.FileDownload)
+                    PremiumSecondaryButton("Share", { onShareVideo(animation.videoUrl) }, Modifier.weight(.7f), Icons.Outlined.Share)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoopingVideo(url: String, modifier: Modifier = Modifier) {
+    androidx.compose.ui.viewinterop.AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            android.widget.VideoView(context).apply {
+                setVideoURI(android.net.Uri.parse(url))
+                setOnPreparedListener { player -> player.isLooping = true; player.setVolume(0f, 0f); start() }
+            }
+        },
+        update = { view -> if (!view.isPlaying) view.start() },
+    )
 }

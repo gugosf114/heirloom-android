@@ -96,7 +96,7 @@ export default {
     if (url.pathname === '/billing/sync') {
       return syncBilling(request, env);
     }
-    if (url.pathname === '/restore' || url.pathname === '/restore-stream') {
+    if (url.pathname === '/restore' || url.pathname === '/restore-stream' || url.pathname === '/animate') {
       return authorizeAndRestore(request, url, env, ctx);
     }
     if (url.pathname === '/report') {
@@ -353,13 +353,16 @@ async function proxyRestoration(
   }
 
   const balance = await balanceForClient(env.BILLING, reservation.clientId);
-  if (requestUrl.pathname === '/restore') {
+  if (requestUrl.pathname === '/restore' || requestUrl.pathname === '/animate') {
+    // One JSON reply: a restored photo or a short animation. Either spends one credit
+    // only when the media actually arrived.
+    const mediaField = requestUrl.pathname === '/animate' ? 'video_url' : 'restored_url';
     const inspection = upstream.clone();
     ctx.waitUntil(
       inspection
-        .json<{ restored_url?: string }>()
+        .json<Record<string, unknown>>()
         .then(result =>
-          result.restored_url
+          typeof result[mediaField] === 'string' && (result[mediaField] as string).length > 0
             ? finishSuccessfulRestore(env, reservation)
             : refundRestoration(env.BILLING, reservation.requestId),
         )

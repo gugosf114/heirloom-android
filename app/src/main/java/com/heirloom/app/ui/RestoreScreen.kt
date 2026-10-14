@@ -48,6 +48,7 @@ import androidx.core.content.ContextCompat
 @Composable
 fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val animation by viewModel.animation.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
@@ -211,6 +212,16 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                             stageResults = current.stageResults,
                         )
                         is RestoreState.Done -> PremiumDoneBody(
+                            animation = animation,
+                            onAnimate = { viewModel.animate(current) },
+                            onSaveVideo = { url ->
+                                scope.launch {
+                                    runCatching { PhotoIo.saveVideoToGallery(context, url) }
+                                        .onSuccess { snackbarHostState.showSnackbar("Saved to Movies/Heirloom") }
+                                        .onFailure { snackbarHostState.showSnackbar(it.message ?: "Save failed") }
+                                }
+                            },
+                            onShareVideo = { url -> scope.launch { runCatching { PhotoIo.shareVideo(context, url) } } },
                             sourceUri = current.source.toString(),
                             restoredUrl = current.restoredUrl,
                             identityWarning = current.identityWarning,

@@ -34,7 +34,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .adaface import GATE
 from .grayscale import is_grayscale
-from .stages import bopb, codeformer, ddcolor, esrgan, generative
+from .stages import animate, bopb, codeformer, ddcolor, esrgan, generative
 
 MAX_BYTES = 5 * 1024 * 1024
 MAX_INPUT_DIMENSION = int(os.getenv("MAX_INPUT_DIMENSION", "1024"))
@@ -302,3 +302,35 @@ def restore_stream(
 
     return StreamingResponse(gen(), media_type="application/x-ndjson",
                              headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+ANIMATE_SECONDS = int(os.getenv("ANIMATE_SECONDS", "4"))
+
+
+@app.post("/animate")
+def animate_photo(
+    image: UploadFile = File(...),
+    x_pipeline_key: Optional[str] = Header(default=None),
+):
+    """A restored photograph -> a short MP4 that brings it gently to life."""
+    _require_pipeline_key(x_pipeline_key)
+    try:
+        data = _read_image(image)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    try:
+        with tempfile.TemporaryDirectory() as workdir:
+            src = os.path.join(workdir, "in.jpg")
+            _normalize_input(data, src)
+            started = time.monotonic()
+            path = animate.run(src, os.path.join(workdir, "anim"), seconds=ANIMATE_SECONDS)
+            with open(path, "rb") as f:
+                video = f.read()
+        return JSONResponse({
+            "video_url": "data:video/mp4;base64," + base64.b64encode(video).decode("ascii"),
+            "seconds": ANIMATE_SECONDS,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
+    except Exception as e:
+        print(f"animate failed: {e}", flush=True)
+        return JSONResponse({"error": "animation could not finish"}, status_code=500)

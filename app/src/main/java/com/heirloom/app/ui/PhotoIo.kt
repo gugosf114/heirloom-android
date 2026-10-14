@@ -90,6 +90,47 @@ object PhotoIo {
         }
     }
 
+    suspend fun saveVideoToGallery(context: Context, url: String): Uri = withContext(Dispatchers.IO) {
+        val bytes = readBytes(context, url)
+        val name = "heirloom_${System.currentTimeMillis()}.mp4"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, name)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Heirloom")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("MediaStore insert returned null")
+            resolver.openOutputStream(uri)?.use { it.write(bytes) } ?: error("openOutputStream returned null")
+            values.clear(); values.put(MediaStore.Video.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            uri
+        } else {
+            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "Heirloom").apply { mkdirs() }
+            val file = File(dir, name); file.writeBytes(bytes)
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, name)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.DATA, file.absolutePath)
+            }
+            context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("MediaStore insert returned null")
+        }
+    }
+
+    suspend fun shareVideo(context: Context, url: String) = withContext(Dispatchers.IO) {
+        val bytes = readBytes(context, url)
+        val cacheDir = File(context.cacheDir, "animations").apply { mkdirs() }
+        val file = File(cacheDir, "heirloom_${System.currentTimeMillis()}.mp4").apply { writeBytes(bytes) }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "video/mp4"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share clip").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+    }
+
     suspend fun share(context: Context, url: String) = withContext(Dispatchers.IO) {
         val bytes = readBytes(context, url)
         val cacheDir = File(context.cacheDir, "restored").apply { mkdirs() }

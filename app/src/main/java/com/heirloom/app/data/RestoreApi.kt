@@ -44,6 +44,8 @@ data class ResultReport(
 )
 
 class RestoreHttpException(val statusCode: Int) : IOException("restore failed: $statusCode")
+
+data class AnimationResult(val videoUrl: String, val seconds: Int, val creditsRemaining: Int?)
 class PipelineReportedException : IOException("pipeline reported a failure")
 
 object RestoreApi {
@@ -127,6 +129,37 @@ object RestoreApi {
                 identityUnverified = result.identityUnverified,
                 creditsRemaining = creditsRemaining,
             )
+        }
+    }
+
+    private const val VIDEO_DATA_URL_PREFIX = "data:video/mp4;base64,"
+
+    /** A restored photograph -> a short clip that brings it gently to life. One credit. */
+    suspend fun animate(context: Context, restoredUrl: String): AnimationResult = withContext(Dispatchers.IO) {
+        val billing = (context.applicationContext as HeirloomApp).billing
+        val authorization = billing.restoreAuthorization() ?: throw RestoreHttpException(401)
+        val bytes = com.heirloom.app.ui.PhotoIo.readBytes(context, restoredUrl)
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("image", "restored.jpg", bytes.toRequestBody("image/jpeg".toMediaTypeOrNull()))
+            .build()
+        val request = Request.Builder()
+            .url("${BuildConfig.WORKER_BASE_URL}/animate")
+            .header("Authorization", "Bearer ${authorization.sessionToken}")
+            .header("X-Restoration-ID", authorization.requestId)
+            .post(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw RestoreHttpException(response.code)
+            val creditsRemaining = response.header("X-Heirloom-Credits-Remaining")?.toIntOrNull()
+            val json = JSONObject(response.body?.string() ?: error("Animation returned no data"))
+            val videoUrl = json.optString("video_url")
+            if (!videoUrl.startsWith(VIDEO_DATA_URL_PREFIX)) error("Animation returned no video")
+            val mp4 = Base64.decode(videoUrl.removePrefix(VIDEO_DATA_URL_PREFIX), Base64.DEFAULT)
+            val directory = File(context.cacheDir, "animations").apply { mkdirs() }
+            val file = File(directory, "heirloom_${System.currentTimeMillis()}.mp4")
+            file.writeBytes(mp4)
+            AnimationResult(Uri.fromFile(file).toString(), json.optInt("seconds", 4), creditsRemaining)
         }
     }
 
