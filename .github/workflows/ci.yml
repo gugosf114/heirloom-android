@@ -43,6 +43,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install fastapi python-multipart pillow numpy opencv-python-headless
+      - run: pip install fastapi python-multipart pillow "numpy<2" "opencv-python-headless<4.11"  # pinned like pipeline/requirements.txt; a fresh numpy broke cv2 on 10/13
       - run: python -m compileall -q pipeline/app
       - run: python -m unittest discover -s pipeline/tests
