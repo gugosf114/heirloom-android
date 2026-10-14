@@ -34,11 +34,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .adaface import GATE
 from .grayscale import is_grayscale
-from .stages import bopb, codeformer, ddcolor, esrgan
+from .stages import bopb, codeformer, ddcolor, esrgan, generative
 
 MAX_BYTES = 5 * 1024 * 1024
 MAX_INPUT_DIMENSION = int(os.getenv("MAX_INPUT_DIMENSION", "1024"))
 MAX_INPUT_PIXELS = int(os.getenv("MAX_INPUT_PIXELS", "50000000"))
+# "classic" = BOPB + CodeFormer + DDColor chain; "generative" = one image-editing
+# model call (see stages/generative.py). Both keep Real-ESRGAN and the AdaFace check.
+RESTORE_ENGINE = os.getenv("RESTORE_ENGINE", "classic").strip().lower()
 app = FastAPI(title="heirloom-pipeline")
 
 
@@ -106,30 +109,50 @@ def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False) ->
     # model never kills the whole restore.
     cur = orig_path
     successful_repairs = []
+    input_is_gray = is_grayscale(normalized_input, gray_threshold)
+    generative_engine = RESTORE_ENGINE == "generative"
+
+    if generative_engine:
+        # One model does damage repair, faces, and (when asked) color.
+        yield {"kind": "stage_start", "stage": "generative", "t_ms": t()}
+        s = time.monotonic()
+        try:
+            cur = generative.run(orig_path, os.path.join(workdir, "gen"), colorize=colorize and input_is_gray)
+            successful_repairs.append("generative")
+            yield {"kind": "stage_done", "stage": "generative", "t_ms": t(),
+                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                             "provider": generative.provider()}}
+        except Exception as e:
+            print(f"generative stage failed: {e}", flush=True)
+            yield {"kind": "stage_done", "stage": "generative", "t_ms": t(),
+                   "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
+                             "skipped": True, "error": "stage unavailable"}}
 
     # Stage 1: BOPB (scratch/tear repair) — folder in, folder out.
-    yield {"kind": "stage_start", "stage": "bopb", "t_ms": t()}
-    s = time.monotonic()
-    try:
+    if not generative_engine:
+      yield {"kind": "stage_start", "stage": "bopb", "t_ms": t()}
+    if not generative_engine:
+      s = time.monotonic()
+      try:
         cur = bopb.run(in_dir, os.path.join(workdir, "bopb"))
         successful_repairs.append("bopb")
         yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000)}}
-    except Exception as e:
+      except Exception as e:
         print(f"BOPB stage unavailable: {e}", flush=True)
         yield {"kind": "stage_done", "stage": "bopb", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
                          "skipped": True, "error": "stage unavailable"}}
 
-    # Stage 2: CodeFormer (face restoration).
-    yield {"kind": "stage_start", "stage": "codeformer", "t_ms": t()}
-    s = time.monotonic()
-    try:
+      # Stage 2: CodeFormer (face restoration).
+      yield {"kind": "stage_start", "stage": "codeformer", "t_ms": t()}
+      s = time.monotonic()
+      try:
         cur = codeformer.run(cur, os.path.join(workdir, "cf"), fidelity=fidelity, upscale=2)
         successful_repairs.append("codeformer")
         yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000), "fidelity": fidelity}}
-    except Exception as e:
+      except Exception as e:
         print(f"CodeFormer stage unavailable: {e}", flush=True)
         yield {"kind": "stage_done", "stage": "codeformer", "t_ms": t(),
                "extra": {"duration_ms": int((time.monotonic() - s) * 1000),
@@ -159,12 +182,16 @@ def pipeline_events(image_bytes: bytes, workdir: str, colorize: bool = False) ->
 
     # Stage 5: DDColor (B&W input only).
     yield {"kind": "stage_start", "stage": "colorize_check", "t_ms": t()}
-    input_is_gray = is_grayscale(normalized_input, gray_threshold)
     yield {"kind": "stage_done", "stage": "colorize_check", "t_ms": t(),
            "extra": {"is_grayscale": input_is_gray, "threshold": gray_threshold}}
 
     was_colorized = False
-    if input_is_gray and colorize:
+    if generative_engine:
+        was_colorized = bool(input_is_gray and colorize and "generative" in successful_repairs)
+        yield {"kind": "stage_skipped", "stage": "ddcolor", "t_ms": t(),
+               "reason": "Color is handled by the restoration model." if was_colorized
+               else "Color was not requested or input already has color."}
+    elif input_is_gray and colorize:
         yield {"kind": "stage_start", "stage": "ddcolor", "t_ms": t()}
         s = time.monotonic()
         try:

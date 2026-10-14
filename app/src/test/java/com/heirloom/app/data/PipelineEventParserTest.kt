@@ -99,4 +99,10 @@ class PipelineEventParserTest {
 
         assertTrue(event.result.identityUnverified)
     }
+
+    @Test
+    fun generativeStageShowsAsRepairingDamage() {
+        val event = parsePipelineEvent("""{"kind":"stage_start","stage":"generative","t_ms":1}""")
+        assertEquals(PipelineEvent.StageStarted(Stage.RepairingDamage), event)
+    }
 }

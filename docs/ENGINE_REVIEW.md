@@ -89,3 +89,26 @@ Code: [repair 12](https://github.com/gugosf114/heirloom-android/pull/12). The pr
 Final phone proof: Studio RC9 restored the same previously failing private photograph, with color enabled, in 55 seconds. The phone received and stored a 3,037,914-byte JPEG. The gateway recorded HTTP 200, no exceptions, and 126 ms of CPU time. The result was saved through the app's Save photo button and decoded successfully from the phone gallery.
 
 Installed APK SHA-256: `dc9883c4aec0ded8229767c1f17cd95270cdeb160d4ebe862e9044cf10ff9301`. Its signing certificate SHA-256 matches the saved Studio key: `5ce81f8c3d8506f3eee488412a41dc3aa7700f233d7756a78931afb73329bc8d`. The phone retained the previous cached photographs after the signing migration.
+
+
+## October 13 engine swap: one generative call
+
+Reading the five-model chain end to end showed where the 92 seconds went: three
+of the five models booted from scratch on every photo, the image was upscaled
+twice, and the input was cut to 1,024 pixels before any model saw it. The 2026
+field (Remini, MyHeritage, and the one-call generative editors) is faster and
+rebuilds damage more coherently.
+
+`RESTORE_ENGINE=generative` replaces BOPB, CodeFormer, and DDColor with one
+image-editing call (`pipeline/app/stages/generative.py`; OpenAI `gpt-image-1.5`
+by default, Gemini `gemini-2.5-flash-image` with `RESTORE_PROVIDER=gemini`).
+The prompt orders the model to keep every person's identity, framing, and tones,
+and to add color only when the person asked. Real-ESRGAN x2 and the AdaFace
+check run unchanged on the result. The classic chain remains selectable.
+
+Live check on October 13: Dorothea Lange's *Migrant Mother* through OpenAI,
+no color, 44 seconds, 1,024 x 1,536 output, faces intact. Gemini was not
+testable that night: the Google Cloud project's billing account was past due and
+the Gemini API refused every call.
+
+The Android app shows the generative step as "Repairing damage".

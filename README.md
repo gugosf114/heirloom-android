@@ -32,17 +32,19 @@ Android (Kotlin + Compose)
   -> Play Integrity + Google Play Billing
   -> authenticated Cloudflare Worker + D1 credit ledger
   -> Google Cloud Run L4 GPU
-     1. Bringing Old Photos Back to Life
-     2. CodeFormer
-     3. Real-ESRGAN
-     4. Optional DDColor for black-and-white input
-     5. AdaFace check of the final image
+     1. One image-editing model call (OpenAI gpt-image, or Gemini) repairs
+        damage, rebuilds faces, and adds color only when asked
+        (RESTORE_ENGINE=generative; the older five-model chain stays behind
+        RESTORE_ENGINE=classic: BOPB, CodeFormer, DDColor)
+     2. Real-ESRGAN x2
+     3. AdaFace check of the final image
   -> inline JPEG response
   -> app-private cache on the phone
 ```
 
-The restoration models are self-hosted in Cloud Run. Replicate is not part of
-the runtime architecture.
+Real-ESRGAN and AdaFace are self-hosted in Cloud Run. The restoration itself is
+one call to an image-editing model (OpenAI by default, Gemini optional); the
+photo goes to that provider for the call and is not stored by Heirloom.
 
 The Worker verifies the Play-installed app and Google Play purchase receipts,
 then atomically reserves one server-side credit for each restoration. Failed
