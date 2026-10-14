@@ -57,6 +57,7 @@ object RestoreApi {
         context: Context,
         source: Uri,
         colorize: Boolean = false,
+        mode: RestoreMode = RestoreMode.Full,
         onEvent: (PipelineEvent) -> Unit,
     ): RestoreResult = withContext(Dispatchers.IO) {
         val billing = (context.applicationContext as HeirloomApp).billing
@@ -81,6 +82,7 @@ object RestoreApi {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("colorize", colorize.toString())
+            .addFormDataPart("mode", mode.wire)
             .addFormDataPart(
                 "image",
                 "input.jpg",

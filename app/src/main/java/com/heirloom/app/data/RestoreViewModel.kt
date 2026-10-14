@@ -55,6 +55,11 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
         RestorationSession.update(RestoreState.Picked(uri))
     }
 
+    fun setMode(mode: RestoreMode) {
+        val current = state.value as? RestoreState.Picked ?: return
+        RestorationSession.update(current.copy(mode = mode))
+    }
+
     fun setColorize(enabled: Boolean) {
         val current = state.value as? RestoreState.Picked ?: return
         RestorationSession.update(current.copy(colorize = enabled))
@@ -77,12 +82,17 @@ class RestoreViewModel(app: Application) : AndroidViewModel(app) {
             is RestoreState.Failed -> current.colorize
             else -> false
         }
+        val mode = when (current) {
+            is RestoreState.Picked -> current.mode
+            is RestoreState.Failed -> current.mode
+            else -> RestoreMode.Full
+        }
         RestorationSession.update(RestoreState.Processing(source, Stage.Uploading))
         runCatching {
-            RestorationService.start(getApplication(), source, colorize)
+            RestorationService.start(getApplication(), source, colorize, mode)
         }.onFailure {
             RestorationSession.update(
-                RestoreState.Failed(source, "The restoration could not start. Please try again.", colorize),
+                RestoreState.Failed(source, "The restoration could not start. Please try again.", colorize, mode),
             )
         }
     }

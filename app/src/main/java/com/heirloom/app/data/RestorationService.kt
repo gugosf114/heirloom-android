@@ -62,21 +62,22 @@ class RestorationService : Service() {
         if (restorationJob?.isActive == true) return START_NOT_STICKY
 
         startForeground(NOTIFICATION_ID, progressNotification(Stage.Uploading))
+        val mode = RestoreMode.entries.firstOrNull { it.wire == intent?.getStringExtra(EXTRA_MODE) } ?: RestoreMode.Full
         restorationJob = serviceScope.launch {
-            restore(source, intent?.getBooleanExtra(EXTRA_COLORIZE, false) ?: false)
+            restore(source, intent?.getBooleanExtra(EXTRA_COLORIZE, false) ?: false, mode)
             stopSelf(startId)
         }
         return START_NOT_STICKY
     }
 
-    private suspend fun restore(source: Uri, colorize: Boolean) {
+    private suspend fun restore(source: Uri, colorize: Boolean, mode: RestoreMode = RestoreMode.Full) {
         val startedAt = System.currentTimeMillis()
         RestorationDiagnostics.record(this, "started")
         val stageResults = linkedMapOf<Stage, StageResult>()
         publish(RestoreState.Processing(source, Stage.Uploading), Stage.Uploading)
 
         try {
-            val result = RestoreApi.restore(applicationContext, source, colorize) { event ->
+            val result = RestoreApi.restore(applicationContext, source, colorize, mode) { event ->
                 when (event) {
                     is PipelineEvent.StageStarted -> {
                         RestorationDiagnostics.record(this, "stage=${event.stage}")
@@ -143,7 +144,7 @@ class RestorationService : Service() {
             Log.e("HeirloomRestore", "Restoration failed: $detail")
             RestorationDiagnostics.record(this, "failed $detail")
             val message = userMessage(error)
-            RestorationSession.update(RestoreState.Failed(source, message, colorize))
+            RestorationSession.update(RestoreState.Failed(source, message, colorize, mode))
             finishNotification("Restoration failed", message)
         } finally {
             stopForeground(STOP_FOREGROUND_DETACH)
@@ -244,13 +245,15 @@ class RestorationService : Service() {
         private const val NOTIFICATION_ID = 4101
         private const val EXTRA_SOURCE = "source"
         private const val EXTRA_COLORIZE = "colorize"
+        private const val EXTRA_MODE = "mode"
 
-        fun start(context: Context, source: Uri, colorize: Boolean = false) {
+        fun start(context: Context, source: Uri, colorize: Boolean = false, mode: RestoreMode = RestoreMode.Full) {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, RestorationService::class.java)
                     .putExtra(EXTRA_SOURCE, source.toString())
-                    .putExtra(EXTRA_COLORIZE, colorize),
+                    .putExtra(EXTRA_COLORIZE, colorize)
+                    .putExtra(EXTRA_MODE, mode.wire),
             )
         }
     }
