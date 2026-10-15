@@ -34,7 +34,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .adaface import GATE
 from .grayscale import is_grayscale
-from .stages import animate, bopb, codeformer, ddcolor, esrgan, generative
+from .stages import animate, bopb, codeformer, ddcolor, esrgan, generative, split
 
 MAX_BYTES = 5 * 1024 * 1024
 MAX_INPUT_DIMENSION = int(os.getenv("MAX_INPUT_DIMENSION", "1024"))
@@ -336,3 +336,29 @@ def animate_photo(
     except Exception as e:
         print(f"animate failed: {e}", flush=True)
         return JSONResponse({"error": "animation could not finish"}, status_code=500)
+
+
+@app.post("/split")
+def split_page(
+    image: UploadFile = File(...),
+    x_pipeline_key: Optional[str] = Header(default=None),
+):
+    """A scanned album page -> the box of every photograph on it (0-1000 normalized)."""
+    _require_pipeline_key(x_pipeline_key)
+    try:
+        data = _read_image(image)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    try:
+        with tempfile.TemporaryDirectory() as workdir:
+            # Orientation-correct, modest size: boxes are normalized, so this costs no precision on the phone.
+            src = os.path.join(workdir, "page.jpg")
+            _normalize_input(data, src)
+            with open(src, "rb") as f:
+                page = f.read()
+        started = time.monotonic()
+        photos = split.run(page)
+        return JSONResponse({"photos": photos, "duration_ms": int((time.monotonic() - started) * 1000)})
+    except Exception as e:
+        print(f"split failed: {e}", flush=True)
+        return JSONResponse({"error": "could not read the page"}, status_code=500)

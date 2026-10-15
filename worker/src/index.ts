@@ -99,6 +99,12 @@ export default {
     if (url.pathname === '/restore' || url.pathname === '/restore-stream' || url.pathname === '/animate') {
       return authorizeAndRestore(request, url, env, ctx);
     }
+    if (url.pathname === '/split') {
+      // Finding the photos on an album page is cheap and spends no credit; it still needs a session.
+      const clientId = await authenticatedClient(request, env);
+      if (!clientId) return jsonResponse({ error: 'billing session expired' }, 401);
+      return proxySmokeRestoration(request, url, env);
+    }
     if (url.pathname === '/report') {
       const clientId = await authenticatedClient(request, env);
       if (!clientId) return jsonResponse({ error: 'unauthorized' }, 401);
