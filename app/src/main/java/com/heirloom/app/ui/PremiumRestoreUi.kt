@@ -48,7 +48,9 @@ import com.heirloom.app.data.StageResult
 @Composable
 internal fun HeirloomBrandHeader(
     creditsRemaining: Int?, modifier: Modifier = Modifier, onCredits: (() -> Unit)? = null,
+    onShareApp: (() -> Unit)? = null, onRateApp: (() -> Unit)? = null,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 17.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_heirloom_logo), null,
@@ -67,6 +69,19 @@ internal fun HeirloomBrandHeader(
             } else {
                 Text("PHOTO\nRESTORATION", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (onShareApp != null || onRateApp != null) Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "More" }) {
+                    Icon(Icons.Outlined.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (onShareApp != null) DropdownMenuItem(text = { Text("Share Heirloom") },
+                        leadingIcon = { Icon(Icons.Outlined.Share, null) },
+                        onClick = { menuOpen = false; onShareApp() })
+                    if (onRateApp != null) DropdownMenuItem(text = { Text("Rate Heirloom") },
+                        leadingIcon = { Icon(Icons.Outlined.StarOutline, null) },
+                        onClick = { menuOpen = false; onRateApp() })
+                }
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -175,6 +190,7 @@ internal fun PremiumDoneBody(
     onSave: () -> Unit, onShare: () -> Unit, onReport: () -> Unit, onReset: () -> Unit,
     animation: AnimationState = AnimationState.Idle,
     onAnimate: () -> Unit = {}, onSaveVideo: (String) -> Unit = {}, onShareVideo: (String) -> Unit = {},
+    showRatePrompt: Boolean = false, onRate: () -> Unit = {}, onRateDismiss: () -> Unit = {},
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp, bottom = 16.dp)) {
@@ -189,6 +205,7 @@ internal fun PremiumDoneBody(
             PremiumSecondaryButton("Share", onShare, Modifier.weight(.7f), Icons.Outlined.Share)
         }
         BringToLifeCard(animation, onAnimate, onSaveVideo, onShareVideo)
+        if (showRatePrompt) RatePromptCard(onRate, onRateDismiss)
         TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Restore another photograph") }
         HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
         TextButton(onClick = { showDetails = !showDetails }, modifier = Modifier.fillMaxWidth()) {
@@ -247,6 +264,27 @@ private fun PhotoComparison(original: String, restored: String) {
 private fun PhotoLabel(text: String) {
     Text(text, Modifier.background(Color(0xCC102024), RoundedCornerShape(3.dp)).padding(horizontal = 8.dp, vertical = 5.dp),
         style = MaterialTheme.typography.labelSmall, color = Color(0xFFF5F0E8))
+}
+
+/** Shown once, after a restore whose face check passed. "Not now" also retires it for good. */
+@Composable
+private fun RatePromptCard(onRate: () -> Unit, onDismiss: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 14.dp)
+        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp)).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(Icons.Outlined.StarOutline, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.padding(start = 10.dp)) {
+                Text("Happy with this one?", style = MaterialTheme.typography.titleSmall)
+                Text("A rating on Google Play helps other families find Heirloom.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 3.dp))
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onDismiss) { Text("Not now") }
+            TextButton(onClick = onRate) { Text("Rate Heirloom", color = MaterialTheme.colorScheme.primary) }
+        }
+    }
 }
 
 @Composable

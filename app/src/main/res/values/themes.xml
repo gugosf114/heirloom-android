@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Heirloom" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">@color/ic_launcher_background</item>
-        <item name="android:navigationBarColor">@color/ic_launcher_background</item>
-        <item name="android:windowLightStatusBar">false</item>
+    <!-- Light by day. values-night overrides for dark. Bar icon colors are set at runtime by enableEdgeToEdge(). -->
+    <style name="Theme.Heirloom" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F4F0E8</item>
     </style>
 </resources>

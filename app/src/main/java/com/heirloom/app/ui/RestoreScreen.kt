@@ -41,6 +41,7 @@ import com.heirloom.app.data.RestoreViewModel
 import com.heirloom.app.ui.theater.RestorationTheater
 import kotlinx.coroutines.launch
 import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
@@ -65,6 +66,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
     var reportTarget by remember { mutableStateOf<RestoreState.Done?>(null) }
     var reportSubmitting by remember { mutableStateOf(false) }
     var pendingLegacySave by remember { mutableStateOf<String?>(null) }
+    val ratePrefs = remember { context.getSharedPreferences("heirloom_prefs", Context.MODE_PRIVATE) }
+    var ratePromptDone by remember { mutableStateOf(ratePrefs.getBoolean(RATE_PROMPT_DONE, false)) }
 
     val saveRestoredPhoto: (String) -> Unit = { restoredUrl ->
         scope.launch {
@@ -156,6 +159,8 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                     creditsRemaining =
                         (entitlement as? Entitlement.Credits)?.totalRemaining,
                     onCredits = { showPaywall = true },
+                    onShareApp = { AppLinks.shareApp(context) },
+                    onRateApp = { AppLinks.openStorePage(context) },
                 )
 
                 AnimatedContent(
@@ -256,6 +261,10 @@ fun RestoreScreen(viewModel: RestoreViewModel = viewModel()) {
                             },
                             onReport = { reportTarget = current },
                             onReset = viewModel::reset,
+                            showRatePrompt = !current.identityWarning && !ratePromptDone,
+                            onRate = { ratePromptDone = true; ratePrefs.edit().putBoolean(RATE_PROMPT_DONE, true).apply()
+                                if (activity != null) AppLinks.requestReview(activity) else AppLinks.openStorePage(context) },
+                            onRateDismiss = { ratePromptDone = true; ratePrefs.edit().putBoolean(RATE_PROMPT_DONE, true).apply() },
                         )
                         is RestoreState.Failed -> PremiumFailedBody(
                             message = current.message,
@@ -477,3 +486,5 @@ private fun PackPurchaseButton(pack: RestorationPack, product: ProductDetails, o
         Text(price, style = MaterialTheme.typography.titleMedium)
     }
 }
+
+private const val RATE_PROMPT_DONE = "rate_prompt_done"
