@@ -16,8 +16,8 @@ android {
         applicationId = "com.wimlabs.heirloom"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.0.0-rc9"
+        versionCode = 10
+        versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -144,6 +144,8 @@ dependencies {
     // Google Play Billing
     implementation("com.android.billingclient:billing-ktx:9.1.0")
     implementation("com.google.android.play:integrity:1.6.0")
+    // Google Play in-app review (the one-time "Rate Heirloom" card)
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     // ML Kit Document Scanner (For perspective cropping physical photos)
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")

@@ -1,5 +1,6 @@
 package com.heirloom.app.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -35,7 +36,7 @@ private val GalleryLight = lightColorScheme(
     outline = Color(0xFF9AA5A0), outlineVariant = Color(0xFFD6DBD3),
 )
 @Composable
-fun HeirloomTheme(darkTheme: Boolean = true, content: @Composable () -> Unit) {
+fun HeirloomTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (darkTheme) GalleryDark else GalleryLight,
         typography = HeirloomTypography,
