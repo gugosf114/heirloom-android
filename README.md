@@ -1,5 +1,5 @@
-> ## [⬇ DOWNLOAD THE LATEST ANDROID APK — 2026-10-14](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0-rc9.apk)
-> **Current build: 1.0.0-rc9 · Android version code 9 · 2026-10-14**
+> ## [⬇ DOWNLOAD THE LATEST ANDROID APK — 2026-10-26](https://github.com/gugosf114/heirloom-android/releases/latest/download/Heirloom-1.0.0.apk)
+> **Current build: 1.0.0 · Android version code 10 · 2026-10-26**
 
 # Heirloom
 
